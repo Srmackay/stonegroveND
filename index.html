@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stonegrove · Neurodiversity Intelligence Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --ink:#1a1a1a;--ink2:#444;--ink3:#888;--ink4:#bbb;
+  --page:#f7f5f0;--card:#ffffff;--accent:#3d2fa0;--accent2:#1d9e75;
+  --warn:#ba7517;--danger:#c0392b;--border:#e0ddd6;
+  --font-display:'Georgia',serif;--font-body:system-ui,-apple-system,sans-serif;
+  --r:6px;
+}
+@media(prefers-color-scheme:dark){
+  :root{--ink:#e8e6e0;--ink2:#bbb;--ink3:#888;--ink4:#555;
+        --page:#141210;--card:#1e1c18;--border:#2e2c28;--accent:#7c6ff7;--accent2:#3fcba0;}
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);background:var(--page);color:var(--ink);font-size:15px;line-height:1.6}
+a{color:var(--accent);text-decoration:none}
+
+/* ── shell ── */
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+@media(max-width:700px){.shell{grid-template-columns:1fr}}
+
+/* ── mobile nav drawer ── */
+.ham-btn{display:none;position:fixed;top:12px;left:12px;z-index:200;width:40px;height:40px;border-radius:8px;background:var(--accent);border:none;cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.ham-btn span{display:block;width:18px;height:2px;background:#fff;border-radius:2px;transition:all .2s}
+.ham-btn.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.ham-btn.open span:nth-child(2){opacity:0}
+.ham-btn.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.nav-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:150}
+.nav-overlay.show{display:block}
+@media(max-width:700px){
+  .ham-btn{display:flex}
+  nav{display:block;position:fixed;top:0;left:0;height:100vh;width:260px;z-index:160;transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 20px rgba(0,0,0,.2)}
+  nav.open{transform:translateX(0)}
+  main{padding:1.5rem 1rem;padding-top:3.5rem}
+}
+
+/* ── sidebar ── */
+nav{background:var(--card);border-right:1px solid var(--border);padding:2rem 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.nav-logo{padding:0 1.5rem 1.5rem;border-bottom:1px solid var(--border);margin-bottom:1rem}
+.nav-logo .uni{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);font-family:var(--font-body)}
+.nav-logo .title{font-family:var(--font-display);font-size:17px;color:var(--ink);line-height:1.3;margin-top:4px}
+nav ul{list-style:none}
+nav li a{display:flex;align-items:center;gap:8px;padding:8px 1.5rem;font-size:13px;color:var(--ink2);border-left:2px solid transparent;transition:all .15s}
+nav li a:hover{color:var(--ink);background:var(--page)}
+nav li a.active{color:var(--accent);border-left-color:var(--accent);background:var(--page);font-weight:500}
+.nav-section{padding:1.25rem 1.5rem .25rem;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── main ── */
+main{padding:2.5rem 2rem;max-width:960px}
+@media(max-width:700px){main{padding:1.5rem 1rem}nav{display:none}}
+.section{display:none}
+.section.active{display:block}
+.page-title{font-family:var(--font-display);font-size:28px;font-weight:normal;color:var(--ink);margin-bottom:.25rem}
+.page-sub{font-size:13px;color:var(--ink3);margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border)}
+h2{font-family:var(--font-display);font-size:19px;font-weight:normal;color:var(--ink);margin:2rem 0 .75rem}
+h3{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:1.5rem 0 .5rem}
+p{color:var(--ink2);margin-bottom:.75rem;font-size:14px}
+
+/* ── cards ── */
+.metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1.5rem}
+.metric{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.metric .val{font-size:22px;font-weight:600;margin-bottom:2px;font-variant-numeric:tabular-nums}
+.metric .lbl{font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em}
+.metric .sub{font-size:11px;color:var(--ink3);margin-top:3px}
+.metric.good .val{color:var(--accent2)}
+.metric.bad .val{color:var(--danger)}
+.metric.warn .val{color:var(--warn)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem}
+.chart-wrap{position:relative;height:260px;margin:1rem 0}
+.chart-wrap.tall{height:320px}
+.chart-wrap.short{height:200px}
+
+/* ── controls ── */
+.ctrl-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.ctrl-row label{font-size:12px;color:var(--ink3)}
+select,button.pill{font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--ink);cursor:pointer;appearance:none}
+select:hover,button.pill:hover{border-color:var(--accent)}
+button.pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ── table ── */
+.tbl-wrap{overflow-x:auto;max-height:420px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:7px 10px;background:var(--page);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border)}
+td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--page)}
+.gap-pos{color:var(--accent2);font-weight:600}
+.gap-neg{color:var(--danger)}
+.gap-warn{color:var(--warn)}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--page);color:var(--ink3);border:1px solid var(--border)}
+.badge.green{background:#e8f7f0;color:#0d6e4b;border-color:#9fe1cb}
+.badge.amber{background:#fef7e6;color:#7a4d0d;border-color:#fac775}
+
+/* ── find box ── */
+#mod-search{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--card);color:var(--ink);margin-bottom:.75rem}
+#mod-search:focus{outline:none;border-color:var(--accent)}
+
+/* ── insight cards ── */
+.insight{border-left:3px solid var(--accent);padding:12px 16px;margin-bottom:10px;background:var(--card);border-radius:0 var(--r) var(--r) 0;font-size:13px;color:var(--ink2);line-height:1.6}
+.insight strong{display:block;color:var(--ink);font-size:14px;margin-bottom:4px}
+.insight.warn{border-color:var(--warn)}
+.insight.good{border-color:var(--accent2)}
+.insight.danger{border-color:var(--danger)}
+
+/* ── legend ── */
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.75rem}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2)}
+.swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+footer{margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);font-size:12px;color:var(--ink3)}
+</style>
+</head>
+<body>
+<button class="ham-btn" id="hamBtn" aria-label="Open navigation menu">
+  <span></span><span></span><span></span>
+</button>
+<div class="nav-overlay" id="navOverlay"></div>
+<div class="shell">
+
+<nav>
+  <div class="nav-logo">
+    <div class="uni">Stonegrove University</div>
+    <div class="title">Neurodiversity<br>Intelligence</div>
+  </div>
+  <div class="nav-section">Overview</div>
+  <ul>
+    <li><a href="#overview" class="nav-link active" data-section="overview"><span class="dot" style="background:#7c6ff7"></span>Population & trends</a></li>
+    <li><a href="#attainment" class="nav-link" data-section="attainment"><span class="dot" style="background:#e24b4b"></span>Attainment gap</a></li>
+  </ul>
+  <div class="nav-section">By theme</div>
+  <ul>
+    <li><a href="#formats" class="nav-link" data-section="formats"><span class="dot" style="background:#ba7517"></span>Assessment formats</a></li>
+    <li><a href="#modules" class="nav-link" data-section="modules"><span class="dot" style="background:#1d9e75"></span>Module explorer</a></li>
+    <li><a href="#wellbeing" class="nav-link" data-section="wellbeing"><span class="dot" style="background:#185fa5"></span>Wellbeing & belonging</a></li>
+    <li><a href="#outcomes" class="nav-link" data-section="outcomes"><span class="dot" style="background:#534ab7"></span>Graduate outcomes</a></li>
+    <li><a href="#alerts" class="nav-link" data-section="alerts"><span class="dot" style="background:#c0392b"></span>Early alert signals</a></li>
+  </ul>
+  <div class="nav-section">Reference</div>
+  <ul>
+    <li><a href="#nss" class="nav-link" data-section="nss"><span class="dot" style="background:#888"></span>NSS satisfaction</a></li>
+  </ul>
+</nav>
+
+<main>
+
+<!-- ── OVERVIEW ── -->
+<div class="section active" id="section-overview">
+  <div class="page-title">Population &amp; trends</div>
+  <div class="page-sub">ND enrolment and assessment marks across 7 academic years · 1046-47 to 1052-53</div>
+  <div class="metric-row" id="overview-metrics"></div>
+  <div class="card">
+    <h3>ND enrolment by type</h3>
+    <div class="ctrl-row">
+      <label>Show:</label>
+      <button class="pill active" onclick="setEnrolView('count',this)">Count</button>
+      <button class="pill" onclick="setEnrolView('pct',this)">% of total</button>
+    </div>
+    <div class="chart-wrap"><canvas id="enrolChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Mean assessment mark over time</h3>
+    <div class="ctrl-row" id="marks-filters"></div>
+    <div class="chart-wrap"><canvas id="marksChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ── ATTAINMENT ── -->
+<div class="section" id="section-attainment">
+  <div class="page-title">Attainment gap</div>
+  <div class="page-sub">Year fail rates, degree classifications, and mark gaps by ND type</div>
+  <div class="metric-row" id="attain-metrics"></div>
+  <div class="card">
+    <h3>Year fail rate trend</h3>
+    <div class="ctrl-row" id="fail-filters"></div>
+    <div class="chart-wrap"><canvas id="failChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Degree classification breakdown</h3>
+    <div class="chart-wrap"><canvas id="degChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ── FORMATS ── -->
+<div class="section" id="section-formats">
+  <div class="page-title">Assessment formats</div>
+  <div class="page-sub">How the attainment gap varies by assessment type</div>
+  <div class="insight good"><strong>Viva and practical exams show the smallest autistic gap</strong>Autistic students are 3× more likely to outperform non-ND peers in viva/practical modules than in MCQ or groupwork modules.</div>
+  <div class="insight danger"><strong>MCQ: zero outperformance modules in the dataset</strong>Not a single module using multiple-choice assessment shows autistic students matching or exceeding non-ND performance.</div>
+  <div class="card">
+    <h3>Mean mark by format — select groups to compare</h3>
+    <div class="ctrl-row" id="fmt-filters"></div>
+    <div class="chart-wrap"><canvas id="fmtChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ── MODULES ── -->
+<div class="section" id="section-modules">
+  <div class="page-title">Module explorer</div>
+  <div class="page-sub">All 333 modules with ≥5 autistic students · sorted by autistic gap</div>
+  <div class="insight good"><strong>57 modules where autistic students outperform non-ND</strong>Filter by gap direction below to explore the conditions these modules share.</div>
+  <div class="ctrl-row">
+    <label>Filter:</label>
+    <button class="pill active" onclick="filterMods('all',this)">All 333</button>
+    <button class="pill" onclick="filterMods('out',this)">Outperformance (57)</button>
+    <button class="pill" onclick="filterMods('strong',this)">Strong ≥+2pts (31)</button>
+    <button class="pill" onclick="filterMods('large',this)">Large gap ≤−5pts</button>
+  </div>
+  <div class="ctrl-row">
+    <label>Faculty:</label>
+    <select id="fac-filter" onchange="renderModTable()"><option value="">All faculties</option></select>
+    <label>Format:</label>
+    <select id="fmt-filter" onchange="renderModTable()"><option value="">All formats</option></select>
+    <label>Year:</label>
+    <select id="yr-filter" onchange="renderModTable()"><option value="">All years</option><option>1</option><option>2</option><option>3</option></select>
+  </div>
+  <input id="mod-search" placeholder="Search module name..." oninput="renderModTable()">
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Module</th><th>Format</th><th>Yr</th><th>Dept</th><th>Autistic</th><th>Non-ND</th><th>Gap</th></tr></thead>
+      <tbody id="mod-tbody"></tbody>
+    </table>
+  </div>
+  <p id="mod-count" style="font-size:12px;color:var(--ink3);margin-top:.5rem"></p>
+</div>
+
+<!-- ── WELLBEING ── -->
+<div class="section" id="section-wellbeing">
+  <div class="page-title">Wellbeing &amp; belonging</div>
+  <div class="page-sub">Enrolment survey scores across the student lifecycle</div>
+  <div class="insight"><strong>Year 2 belonging dip — universal but deeper for ND</strong>Every group experiences a sharp peer belonging fall from Year 1 to Year 2. ADHD students drop −0.30 pts, the largest fall in the dataset.</div>
+  <div class="insight good"><strong>Academic self-efficacy is the strongest predictor of outcomes (r=0.40 with marks)</strong>ADHD students start lowest (3.39) but grow fastest across 3 years.</div>
+  <div class="card">
+    <h3>Survey dimensions by programme year — select dimension</h3>
+    <div class="ctrl-row" id="surv-dims"></div>
+    <div class="chart-wrap"><canvas id="survChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ── OUTCOMES ── -->
+<div class="section" id="section-outcomes">
+  <div class="page-title">Graduate outcomes</div>
+  <div class="page-sub">Employment rates, salary bands, and the autistic employment paradox</div>
+  <div class="metric-row" id="outcomes-metrics"></div>
+  <div class="insight good"><strong>Autistic graduates: 69.5% employed — highest of any group including non-ND</strong>Despite lower degree classifications (6% Firsts vs 10.6%), autistic graduates outperform on employment and earn comparably to non-ND.</div>
+  <div class="insight warn"><strong>ADHD graduates: lowest salary band (2.64) of any group</strong>The attainment gap translates most directly into labour market disadvantage for ADHD students.</div>
+  <div class="card">
+    <h3>Employment rate &amp; salary band by ND type</h3>
+    <div class="chart-wrap"><canvas id="empChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ── ALERTS ── -->
+<div class="section" id="section-alerts">
+  <div class="page-title">Early alert signals</div>
+  <div class="page-sub">Attendance collapse patterns and predictive thresholds for ADHD students</div>
+  <div class="insight danger"><strong>ADHD attendance drops to 64% at weeks 6–8 — every semester, every year</strong>This predictable mid-semester cliff can be detected from week 4 enrolment data, before the collapse occurs.</div>
+  <div class="insight"><strong>Self-efficacy ≤2 at enrolment → 69% year fail rate for ADHD students</strong>The enrolment survey is an early-warning instrument if treated as one.</div>
+  <div class="card">
+    <h3>Attendance rate by semester week</h3>
+    <div class="chart-wrap"><canvas id="attendChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>ADHD fail rate by weeks 1–4 attendance</h3>
+    <div class="chart-wrap short"><canvas id="threshChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ── NSS ── -->
+<div class="section" id="section-nss">
+  <div class="page-title">NSS satisfaction scores</div>
+  <div class="page-sub">National Student Survey results by ND group</div>
+  <div class="insight danger"><strong>Academic support: the largest satisfaction gap across all ND groups</strong>Comm. diff. students score −0.65 below non-ND on academic support — the worst score in the dataset.</div>
+  <div class="card">
+    <h3>NSS scores — spider chart comparison</h3>
+    <div class="chart-wrap tall"><canvas id="nssChart"></canvas></div>
+  </div>
+</div>
+
+<footer>Stonegrove Institutional Research · Longitudinal dataset 1046-47 to 1052-53 · 35,000 students · Internal use only</footer>
+</main>
+</div>
+
+<script>
+const DATA = {"enrolment": [{"academic_year": "1046-47", "nd_type": "adhd", "count": 319}, {"academic_year": "1046-47", "nd_type": "autistic_spectrum", "count": 208}, {"academic_year": "1046-47", "nd_type": "communication_difficulties", "count": 99}, {"academic_year": "1046-47", "nd_type": "dyslexia", "count": 119}, {"academic_year": "1046-47", "nd_type": "non_nd", "count": 4030}, {"academic_year": "1046-47", "nd_type": "other_neurodivergence", "count": 120}, {"academic_year": "1046-47", "nd_type": "specific_learning_disability", "count": 105}, {"academic_year": "1047-48", "nd_type": "adhd", "count": 586}, {"academic_year": "1047-48", "nd_type": "autistic_spectrum", "count": 398}, {"academic_year": "1047-48", "nd_type": "communication_difficulties", "count": 194}, {"academic_year": "1047-48", "nd_type": "dyslexia", "count": 242}, {"academic_year": "1047-48", "nd_type": "non_nd", "count": 7826}, {"academic_year": "1047-48", "nd_type": "other_neurodivergence", "count": 213}, {"academic_year": "1047-48", "nd_type": "specific_learning_disability", "count": 166}, {"academic_year": "1048-49", "nd_type": "adhd", "count": 695}, {"academic_year": "1048-49", "nd_type": "autistic_spectrum", "count": 500}, {"academic_year": "1048-49", "nd_type": "communication_difficulties", "count": 225}, {"academic_year": "1048-49", "nd_type": "dyslexia", "count": 296}, {"academic_year": "1048-49", "nd_type": "non_nd", "count": 9473}, {"academic_year": "1048-49", "nd_type": "other_neurodivergence", "count": 270}, {"academic_year": "1048-49", "nd_type": "specific_learning_disability", "count": 184}, {"academic_year": "1049-50", "nd_type": "adhd", "count": 720}, {"academic_year": "1049-50", "nd_type": "autistic_spectrum", "count": 504}, {"academic_year": "1049-50", "nd_type": "communication_difficulties", "count": 237}, {"academic_year": "1049-50", "nd_type": "dyslexia", "count": 304}, {"academic_year": "1049-50", "nd_type": "non_nd", "count": 9845}, {"academic_year": "1049-50", "nd_type": "other_neurodivergence", "count": 251}, {"academic_year": "1049-50", "nd_type": "specific_learning_disability", "count": 192}, {"academic_year": "1050-51", "nd_type": "adhd", "count": 712}, {"academic_year": "1050-51", "nd_type": "autistic_spectrum", "count": 509}, {"academic_year": "1050-51", "nd_type": "communication_difficulties", "count": 262}, {"academic_year": "1050-51", "nd_type": "dyslexia", "count": 300}, {"academic_year": "1050-51", "nd_type": "non_nd", "count": 9957}, {"academic_year": "1050-51", "nd_type": "other_neurodivergence", "count": 264}, {"academic_year": "1050-51", "nd_type": "specific_learning_disability", "count": 207}, {"academic_year": "1051-52", "nd_type": "adhd", "count": 750}, {"academic_year": "1051-52", "nd_type": "autistic_spectrum", "count": 517}, {"academic_year": "1051-52", "nd_type": "communication_difficulties", "count": 261}, {"academic_year": "1051-52", "nd_type": "dyslexia", "count": 311}, {"academic_year": "1051-52", "nd_type": "non_nd", "count": 10009}, {"academic_year": "1051-52", "nd_type": "other_neurodivergence", "count": 258}, {"academic_year": "1051-52", "nd_type": "specific_learning_disability", "count": 223}, {"academic_year": "1052-53", "nd_type": "adhd", "count": 759}, {"academic_year": "1052-53", "nd_type": "autistic_spectrum", "count": 549}, {"academic_year": "1052-53", "nd_type": "communication_difficulties", "count": 235}, {"academic_year": "1052-53", "nd_type": "dyslexia", "count": 318}, {"academic_year": "1052-53", "nd_type": "non_nd", "count": 10046}, {"academic_year": "1052-53", "nd_type": "other_neurodivergence", "count": 245}, {"academic_year": "1052-53", "nd_type": "specific_learning_disability", "count": 225}], "marks_by_year": [{"academic_year": "1046-47", "nd_type": "adhd", "mean_mark": 53.69}, {"academic_year": "1046-47", "nd_type": "autistic_spectrum", "mean_mark": 61.58}, {"academic_year": "1046-47", "nd_type": "communication_difficulties", "mean_mark": 53.64}, {"academic_year": "1046-47", "nd_type": "dyslexia", "mean_mark": 55.39}, {"academic_year": "1046-47", "nd_type": "non_nd", "mean_mark": 64.01}, {"academic_year": "1046-47", "nd_type": "other_neurodivergence", "mean_mark": 59.25}, {"academic_year": "1046-47", "nd_type": "specific_learning_disability", "mean_mark": 53.98}, {"academic_year": "1047-48", "nd_type": "adhd", "mean_mark": 53.37}, {"academic_year": "1047-48", "nd_type": "autistic_spectrum", "mean_mark": 61.69}, {"academic_year": "1047-48", "nd_type": "communication_difficulties", "mean_mark": 53.83}, {"academic_year": "1047-48", "nd_type": "dyslexia", "mean_mark": 55.63}, {"academic_year": "1047-48", "nd_type": "non_nd", "mean_mark": 62.99}, {"academic_year": "1047-48", "nd_type": "other_neurodivergence", "mean_mark": 59.57}, {"academic_year": "1047-48", "nd_type": "specific_learning_disability", "mean_mark": 53.89}, {"academic_year": "1048-49", "nd_type": "adhd", "mean_mark": 52.77}, {"academic_year": "1048-49", "nd_type": "autistic_spectrum", "mean_mark": 59.76}, {"academic_year": "1048-49", "nd_type": "communication_difficulties", "mean_mark": 52.97}, {"academic_year": "1048-49", "nd_type": "dyslexia", "mean_mark": 53.89}, {"academic_year": "1048-49", "nd_type": "non_nd", "mean_mark": 61.91}, {"academic_year": "1048-49", "nd_type": "other_neurodivergence", "mean_mark": 58.45}, {"academic_year": "1048-49", "nd_type": "specific_learning_disability", "mean_mark": 53.54}, {"academic_year": "1049-50", "nd_type": "adhd", "mean_mark": 52.37}, {"academic_year": "1049-50", "nd_type": "autistic_spectrum", "mean_mark": 59.07}, {"academic_year": "1049-50", "nd_type": "communication_difficulties", "mean_mark": 52.7}, {"academic_year": "1049-50", "nd_type": "dyslexia", "mean_mark": 52.89}, {"academic_year": "1049-50", "nd_type": "non_nd", "mean_mark": 61.33}, {"academic_year": "1049-50", "nd_type": "other_neurodivergence", "mean_mark": 58.13}, {"academic_year": "1049-50", "nd_type": "specific_learning_disability", "mean_mark": 53.22}, {"academic_year": "1050-51", "nd_type": "adhd", "mean_mark": 52.1}, {"academic_year": "1050-51", "nd_type": "autistic_spectrum", "mean_mark": 57.7}, {"academic_year": "1050-51", "nd_type": "communication_difficulties", "mean_mark": 52.16}, {"academic_year": "1050-51", "nd_type": "dyslexia", "mean_mark": 53.05}, {"academic_year": "1050-51", "nd_type": "non_nd", "mean_mark": 61.4}, {"academic_year": "1050-51", "nd_type": "other_neurodivergence", "mean_mark": 57.54}, {"academic_year": "1050-51", "nd_type": "specific_learning_disability", "mean_mark": 53.78}, {"academic_year": "1051-52", "nd_type": "adhd", "mean_mark": 51.7}, {"academic_year": "1051-52", "nd_type": "autistic_spectrum", "mean_mark": 57.83}, {"academic_year": "1051-52", "nd_type": "communication_difficulties", "mean_mark": 51.71}, {"academic_year": "1051-52", "nd_type": "dyslexia", "mean_mark": 53.36}, {"academic_year": "1051-52", "nd_type": "non_nd", "mean_mark": 61.35}, {"academic_year": "1051-52", "nd_type": "other_neurodivergence", "mean_mark": 56.97}, {"academic_year": "1051-52", "nd_type": "specific_learning_disability", "mean_mark": 53.83}, {"academic_year": "1052-53", "nd_type": "adhd", "mean_mark": 51.75}, {"academic_year": "1052-53", "nd_type": "autistic_spectrum", "mean_mark": 58.06}, {"academic_year": "1052-53", "nd_type": "communication_difficulties", "mean_mark": 50.77}, {"academic_year": "1052-53", "nd_type": "dyslexia", "mean_mark": 52.38}, {"academic_year": "1052-53", "nd_type": "non_nd", "mean_mark": 61.26}, {"academic_year": "1052-53", "nd_type": "other_neurodivergence", "mean_mark": 56.26}, {"academic_year": "1052-53", "nd_type": "specific_learning_disability", "mean_mark": 53.76}], "fail_rate": [{"year": "1046-47", "nd_type": "adhd", "fail_rate": 27.6}, {"year": "1046-47", "nd_type": "autistic_spectrum", "fail_rate": 13.0}, {"year": "1046-47", "nd_type": "communication_difficulties", "fail_rate": 23.2}, {"year": "1046-47", "nd_type": "dyslexia", "fail_rate": 21.8}, {"year": "1046-47", "nd_type": "non_nd", "fail_rate": 7.5}, {"year": "1046-47", "nd_type": "other_neurodivergence", "fail_rate": 12.5}, {"year": "1046-47", "nd_type": "specific_learning_disability", "fail_rate": 27.6}, {"year": "1047-48", "nd_type": "adhd", "fail_rate": 27.5}, {"year": "1047-48", "nd_type": "autistic_spectrum", "fail_rate": 7.1}, {"year": "1047-48", "nd_type": "communication_difficulties", "fail_rate": 23.8}, {"year": "1047-48", "nd_type": "dyslexia", "fail_rate": 19.7}, {"year": "1047-48", "nd_type": "non_nd", "fail_rate": 8.9}, {"year": "1047-48", "nd_type": "other_neurodivergence", "fail_rate": 12.2}, {"year": "1047-48", "nd_type": "specific_learning_disability", "fail_rate": 24.4}, {"year": "1048-49", "nd_type": "adhd", "fail_rate": 31.2}, {"year": "1048-49", "nd_type": "autistic_spectrum", "fail_rate": 14.8}, {"year": "1048-49", "nd_type": "communication_difficulties", "fail_rate": 30.0}, {"year": "1048-49", "nd_type": "dyslexia", "fail_rate": 27.4}, {"year": "1048-49", "nd_type": "non_nd", "fail_rate": 10.3}, {"year": "1048-49", "nd_type": "other_neurodivergence", "fail_rate": 15.9}, {"year": "1048-49", "nd_type": "specific_learning_disability", "fail_rate": 26.1}, {"year": "1049-50", "nd_type": "adhd", "fail_rate": 31.9}, {"year": "1049-50", "nd_type": "autistic_spectrum", "fail_rate": 17.1}, {"year": "1049-50", "nd_type": "communication_difficulties", "fail_rate": 35.8}, {"year": "1049-50", "nd_type": "dyslexia", "fail_rate": 29.8}, {"year": "1049-50", "nd_type": "non_nd", "fail_rate": 11.3}, {"year": "1049-50", "nd_type": "other_neurodivergence", "fail_rate": 21.2}, {"year": "1049-50", "nd_type": "specific_learning_disability", "fail_rate": 24.7}, {"year": "1050-51", "nd_type": "adhd", "fail_rate": 34.3}, {"year": "1050-51", "nd_type": "autistic_spectrum", "fail_rate": 17.7}, {"year": "1050-51", "nd_type": "communication_difficulties", "fail_rate": 33.8}, {"year": "1050-51", "nd_type": "dyslexia", "fail_rate": 26.2}, {"year": "1050-51", "nd_type": "non_nd", "fail_rate": 12.2}, {"year": "1050-51", "nd_type": "other_neurodivergence", "fail_rate": 16.7}, {"year": "1050-51", "nd_type": "specific_learning_disability", "fail_rate": 25.5}, {"year": "1051-52", "nd_type": "adhd", "fail_rate": 32.3}, {"year": "1051-52", "nd_type": "autistic_spectrum", "fail_rate": 19.8}, {"year": "1051-52", "nd_type": "communication_difficulties", "fail_rate": 29.9}, {"year": "1051-52", "nd_type": "dyslexia", "fail_rate": 32.6}, {"year": "1051-52", "nd_type": "non_nd", "fail_rate": 12.5}, {"year": "1051-52", "nd_type": "other_neurodivergence", "fail_rate": 21.3}, {"year": "1051-52", "nd_type": "specific_learning_disability", "fail_rate": 27.5}, {"year": "1052-53", "nd_type": "adhd", "fail_rate": 30.4}, {"year": "1052-53", "nd_type": "autistic_spectrum", "fail_rate": 14.9}, {"year": "1052-53", "nd_type": "communication_difficulties", "fail_rate": 37.8}, {"year": "1052-53", "nd_type": "dyslexia", "fail_rate": 33.1}, {"year": "1052-53", "nd_type": "non_nd", "fail_rate": 12.4}, {"year": "1052-53", "nd_type": "other_neurodivergence", "fail_rate": 22.5}, {"year": "1052-53", "nd_type": "specific_learning_disability", "fail_rate": 28.6}], "emp_rate": [{"nd_type": "adhd", "emp_rate": 62.1}, {"nd_type": "autistic_spectrum", "emp_rate": 69.5}, {"nd_type": "communication_difficulties", "emp_rate": 63.3}, {"nd_type": "dyslexia", "emp_rate": 56.6}, {"nd_type": "non_nd", "emp_rate": 63.1}, {"nd_type": "other_neurodivergence", "emp_rate": 66.3}, {"nd_type": "specific_learning_disability", "emp_rate": 57.4}], "salary": [{"nd_type": "adhd", "salary_band": 2.64}, {"nd_type": "autistic_spectrum", "salary_band": 3.17}, {"nd_type": "communication_difficulties", "salary_band": 2.84}, {"nd_type": "dyslexia", "salary_band": 2.63}, {"nd_type": "non_nd", "salary_band": 3.13}, {"nd_type": "other_neurodivergence", "salary_band": 2.89}, {"nd_type": "specific_learning_disability", "salary_band": 2.59}], "deg_class": [{"nd_type": "adhd", "2:1": 22.400000000000002, "2:2": 55.60000000000001, "First": 0.5, "Third": 21.5}, {"nd_type": "autistic_spectrum", "2:1": 38.2, "2:2": 44.6, "First": 6.0, "Third": 11.200000000000001}, {"nd_type": "communication_difficulties", "2:1": 18.8, "2:2": 56.49999999999999, "First": 3.5000000000000004, "Third": 21.2}, {"nd_type": "dyslexia", "2:1": 18.8, "2:2": 58.9, "First": 1.7999999999999998, "Third": 20.5}, {"nd_type": "non_nd", "2:1": 39.900000000000006, "2:2": 39.7, "First": 10.6, "Third": 9.8}, {"nd_type": "other_neurodivergence", "2:1": 32.800000000000004, "2:2": 57.4, "First": 4.1000000000000005, "Third": 5.7}, {"nd_type": "specific_learning_disability", "2:1": 10.4, "2:2": 68.7, "First": 1.5, "Third": 19.400000000000002}], "modules": [{"module": "Design Studio II: Commissions and Constraints", "format": "Professional artefact", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 67.64, "nonnd_mean": 60.31, "gap": 7.33, "n_auto": 16}, {"module": "Research Methods in Media", "format": "Written coursework", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 63.82, "nonnd_mean": 57.99, "gap": 5.83, "n_auto": 28}, {"module": "Ecosystems & Sustainability", "format": "Groupwork", "year": 3, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 67.83, "nonnd_mean": 62.31, "gap": 5.52, "n_auto": 28}, {"module": "Capstone: Precision Artefact for Client or Cause", "format": "Written coursework", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 59.86, "nonnd_mean": 54.5, "gap": 5.36, "n_auto": 16}, {"module": "Psychosomatic Health", "format": "Practical exam", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 64.5, "nonnd_mean": 59.54, "gap": 4.96, "n_auto": 24}, {"module": "Foundations of Multi-System Design", "format": "Written coursework", "year": 1, "dept": "Modern Technologies", "faculty": "Science & Engineering", "auto_mean": 64.88, "nonnd_mean": 60.82, "gap": 4.05, "n_auto": 34}, {"module": "Professional Practice & Entrepreneurship", "format": "Written coursework", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 64.84, "nonnd_mean": 60.8, "gap": 4.03, "n_auto": 16}, {"module": "Media Project / Dissertation", "format": "Written coursework", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 58.97, "nonnd_mean": 55.06, "gap": 3.91, "n_auto": 20}, {"module": "Innovation Management", "format": "Written coursework", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 65.95, "nonnd_mean": 62.08, "gap": 3.86, "n_auto": 26}, {"module": "Media Analysis", "format": "Viva", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 61.39, "nonnd_mean": 57.67, "gap": 3.72, "n_auto": 28}, {"module": "Contemporary Design Issues", "format": "Presentation", "year": 3, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 60.67, "nonnd_mean": 57.03, "gap": 3.64, "n_auto": 10}, {"module": "Dissertation / Research Project", "format": "Written coursework", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 58.28, "nonnd_mean": 54.97, "gap": 3.31, "n_auto": 16}, {"module": "Genetics & Inheritance", "format": "Written coursework", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 64.38, "nonnd_mean": 61.09, "gap": 3.29, "n_auto": 28}, {"module": "Design Studio I", "format": "Written coursework", "year": 1, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 66.66, "nonnd_mean": 63.44, "gap": 3.23, "n_auto": 58}, {"module": "Global Development", "format": "Written coursework", "year": 3, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 61.74, "nonnd_mean": 58.57, "gap": 3.17, "n_auto": 28}, {"module": "Social Media Cultures", "format": "Written exam", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 61.54, "nonnd_mean": 58.4, "gap": 3.14, "n_auto": 28}, {"module": "Biochemistry for Life Sciences", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 67.22, "nonnd_mean": 64.26, "gap": 2.96, "n_auto": 48}, {"module": "Fundamentals of Patient Care", "format": "Presentation", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 64.53, "nonnd_mean": 61.75, "gap": 2.77, "n_auto": 32}, {"module": "Organic Chemistry Fundamentals", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 66.0, "nonnd_mean": 63.29, "gap": 2.71, "n_auto": 48}, {"module": "Employment Law", "format": "Written exam", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 61.56, "nonnd_mean": 58.98, "gap": 2.58, "n_auto": 24}, {"module": "Professional Practice & Management", "format": "Viva", "year": 3, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 60.92, "nonnd_mean": 58.48, "gap": 2.44, "n_auto": 30}, {"module": "Introduction to Graphic Design", "format": "Professional artefact", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 63.72, "nonnd_mean": 61.33, "gap": 2.39, "n_auto": 24}, {"module": "Anatomy & Physiology", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 65.51, "nonnd_mean": 63.21, "gap": 2.31, "n_auto": 28}, {"module": "Dissertation / Research Project", "format": "Written coursework", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 56.16, "nonnd_mean": 53.87, "gap": 2.29, "n_auto": 26}, {"module": "Laboratory Skills & Diagnostics", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 65.19, "nonnd_mean": 62.96, "gap": 2.24, "n_auto": 40}, {"module": "Earth Systems & Environments", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 65.04, "nonnd_mean": 62.81, "gap": 2.22, "n_auto": 48}, {"module": "Taxation", "format": "Written coursework", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 63.5, "nonnd_mean": 61.29, "gap": 2.21, "n_auto": 20}, {"module": "Person-Centred Geography", "format": "Presentation", "year": 1, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 65.58, "nonnd_mean": 63.52, "gap": 2.06, "n_auto": 38}, {"module": "Themes in World History", "format": "Written exam", "year": 1, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 65.94, "nonnd_mean": 63.88, "gap": 2.06, "n_auto": 50}, {"module": "Final Collection / Major Project", "format": "Written coursework", "year": 3, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 55.01, "nonnd_mean": 52.96, "gap": 2.05, "n_auto": 30}, {"module": "Advanced Financial Reporting", "format": "Viva", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 61.81, "nonnd_mean": 59.76, "gap": 2.04, "n_auto": 16}, {"module": "Foundations of Education", "format": "Professional artefact", "year": 1, "dept": "Education", "faculty": "Health & Education", "auto_mean": 66.8, "nonnd_mean": 64.91, "gap": 1.89, "n_auto": 78}, {"module": "Distillation & Alternative Fermentations", "format": "Groupwork", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 59.24, "nonnd_mean": 57.42, "gap": 1.82, "n_auto": 50}, {"module": "Advanced Topics in Geography", "format": "Viva", "year": 3, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 57.17, "nonnd_mean": 55.5, "gap": 1.67, "n_auto": 28}, {"module": "Advanced Media Theory", "format": "Viva", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.87, "nonnd_mean": 58.42, "gap": 1.45, "n_auto": 20}, {"module": "Social & Cultural History", "format": "Written exam", "year": 2, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 60.68, "nonnd_mean": 59.44, "gap": 1.24, "n_auto": 44}, {"module": "Revenue & Yield Management", "format": "Written exam", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 64.17, "nonnd_mean": 63.03, "gap": 1.14, "n_auto": 32}, {"module": "Business Management Fundamentals", "format": "Written exam", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 63.36, "nonnd_mean": 62.25, "gap": 1.11, "n_auto": 44}, {"module": "Modern World History", "format": "Written coursework", "year": 1, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 63.21, "nonnd_mean": 62.18, "gap": 1.02, "n_auto": 50}, {"module": "Urban Design & Planning", "format": "Written coursework", "year": 3, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 58.26, "nonnd_mean": 57.26, "gap": 1.0, "n_auto": 30}, {"module": "Healing Traditions Across Realms", "format": "Written coursework", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 60.26, "nonnd_mean": 59.28, "gap": 0.98, "n_auto": 40}, {"module": "Advanced Architectural Technology", "format": "Professional artefact", "year": 3, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 57.18, "nonnd_mean": 56.32, "gap": 0.86, "n_auto": 30}, {"module": "Language Skills I", "format": "Written coursework", "year": 1, "dept": "Languages", "faculty": "Culture & Social Sciences", "auto_mean": 63.0, "nonnd_mean": 62.33, "gap": 0.67, "n_auto": 44}, {"module": "Global Media & Communication", "format": "Presentation", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.14, "nonnd_mean": 58.48, "gap": 0.66, "n_auto": 20}, {"module": "Building Construction & Materials", "format": "Professional artefact", "year": 1, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 63.01, "nonnd_mean": 62.35, "gap": 0.66, "n_auto": 58}, {"module": "Introduction to Interior Design", "format": "Professional artefact", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 63.34, "nonnd_mean": 62.7, "gap": 0.65, "n_auto": 64}, {"module": "Labour & Birth Management", "format": "Practical exam", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 61.98, "nonnd_mean": 61.33, "gap": 0.65, "n_auto": 40}, {"module": "Professional Practice", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 55.41, "nonnd_mean": 54.77, "gap": 0.65, "n_auto": 56}, {"module": "Advanced Illustration Project", "format": "Professional artefact", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 54.52, "nonnd_mean": 54.11, "gap": 0.4, "n_auto": 52}, {"module": "Introduction to Occupational Therapy", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 61.86, "nonnd_mean": 61.54, "gap": 0.32, "n_auto": 60}, {"module": "Technical Drawing & Design", "format": "Practical exam", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 62.91, "nonnd_mean": 62.62, "gap": 0.29, "n_auto": 44}, {"module": "Introduction to Ceremonial Practice", "format": "Groupwork", "year": 1, "dept": "Philosophy and Religion", "faculty": "Culture & Social Sciences", "auto_mean": 63.05, "nonnd_mean": 62.8, "gap": 0.25, "n_auto": 38}, {"module": "Introduction to Person Resource Management", "format": "Written exam", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 62.8, "nonnd_mean": 62.62, "gap": 0.18, "n_auto": 44}, {"module": "Environmental Design Principles", "format": "Professional artefact", "year": 1, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 64.13, "nonnd_mean": 63.99, "gap": 0.14, "n_auto": 58}, {"module": "Sustainable Fashion Design", "format": "Written coursework", "year": 3, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 59.74, "nonnd_mean": 59.66, "gap": 0.08, "n_auto": 30}, {"module": "Urban & Economic Geography", "format": "Written coursework", "year": 2, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 59.17, "nonnd_mean": 59.09, "gap": 0.08, "n_auto": 40}, {"module": "Complications in Pregnancy & Birth", "format": "Written coursework", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 62.78, "nonnd_mean": 62.75, "gap": 0.02, "n_auto": 72}, {"module": "Art History & Visual Culture", "format": "Written exam", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 62.73, "nonnd_mean": 62.75, "gap": -0.02, "n_auto": 58}, {"module": "Historical Methods", "format": "Groupwork", "year": 1, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 64.46, "nonnd_mean": 64.51, "gap": -0.05, "n_auto": 50}, {"module": "Public Law", "format": "Written exam", "year": 1, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 64.04, "nonnd_mean": 64.1, "gap": -0.06, "n_auto": 50}, {"module": "Contemporary Illustration Contexts", "format": "Professional artefact", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 54.59, "nonnd_mean": 54.66, "gap": -0.08, "n_auto": 52}, {"module": "History of Interiors", "format": "Written exam", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 63.59, "nonnd_mean": 63.75, "gap": -0.16, "n_auto": 64}, {"module": "Dissertation / Research Project", "format": "Written coursework", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 53.17, "nonnd_mean": 53.33, "gap": -0.16, "n_auto": 24}, {"module": "Pharmacology & Medication Management", "format": "Written coursework", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 58.68, "nonnd_mean": 58.86, "gap": -0.18, "n_auto": 72}, {"module": "Health, Stress & Regulation", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 61.56, "nonnd_mean": 61.74, "gap": -0.18, "n_auto": 60}, {"module": "Introduction to Conflict Studies", "format": "Written exam", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 63.11, "nonnd_mean": 63.3, "gap": -0.19, "n_auto": 84}, {"module": "Applied Herbal Formulations", "format": "Presentation", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 61.78, "nonnd_mean": 61.97, "gap": -0.19, "n_auto": 42}, {"module": "Financial Markets & Institutions", "format": "Multi-choice exam", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 63.86, "nonnd_mean": 64.11, "gap": -0.24, "n_auto": 20}, {"module": "Building Services & Sustainability", "format": "Professional artefact", "year": 2, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 63.22, "nonnd_mean": 63.61, "gap": -0.39, "n_auto": 40}, {"module": "Major Studio Project", "format": "Professional artefact", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 53.29, "nonnd_mean": 53.69, "gap": -0.4, "n_auto": 44}, {"module": "Strategic Financial Management", "format": "Viva", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 57.65, "nonnd_mean": 58.06, "gap": -0.41, "n_auto": 16}, {"module": "Earth Systems", "format": "Written exam", "year": 1, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 62.4, "nonnd_mean": 62.84, "gap": -0.44, "n_auto": 38}, {"module": "Advanced Herbal Practice", "format": "Written coursework", "year": 3, "dept": "Health", "faculty": "Health & Education", "auto_mean": 59.74, "nonnd_mean": 60.22, "gap": -0.48, "n_auto": 50}, {"module": "Techniques for Metal, Wood, and Mixed Materials", "format": "Practical exam", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 61.87, "nonnd_mean": 62.37, "gap": -0.5, "n_auto": 58}, {"module": "Geographical Skills", "format": "Practical exam", "year": 1, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 60.45, "nonnd_mean": 60.98, "gap": -0.53, "n_auto": 38}, {"module": "Early Modern History", "format": "Written exam", "year": 1, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 62.83, "nonnd_mean": 63.37, "gap": -0.54, "n_auto": 50}, {"module": "Foundations of Pharmacology", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 61.62, "nonnd_mean": 62.18, "gap": -0.56, "n_auto": 32}, {"module": "Cyanotype Processes", "format": "Presentation", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 62.91, "nonnd_mean": 63.48, "gap": -0.57, "n_auto": 58}, {"module": "Composition II", "format": "Groupwork", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 55.49, "nonnd_mean": 56.06, "gap": -0.57, "n_auto": 38}, {"module": "Editorial & Publication Design", "format": "Professional artefact", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 60.83, "nonnd_mean": 61.41, "gap": -0.58, "n_auto": 22}, {"module": "Advanced Printmaking", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.78, "nonnd_mean": 60.36, "gap": -0.58, "n_auto": 52}, {"module": "Dissertation", "format": "Written coursework", "year": 3, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 53.14, "nonnd_mean": 53.87, "gap": -0.73, "n_auto": 34}, {"module": "Therapeutic Communication", "format": "Written coursework", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 59.42, "nonnd_mean": 60.16, "gap": -0.74, "n_auto": 72}, {"module": "Audit & Assurance", "format": "Viva", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 57.81, "nonnd_mean": 58.55, "gap": -0.74, "n_auto": 16}, {"module": "Ethics in Craft, Ownership, and Replication", "format": "Written coursework", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 61.38, "nonnd_mean": 62.24, "gap": -0.86, "n_auto": 16}, {"module": "Tort Law", "format": "Multi-choice exam", "year": 2, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 61.58, "nonnd_mean": 62.43, "gap": -0.86, "n_auto": 36}, {"module": "Materials & Craft of Metals and Stone", "format": "Practical exam", "year": 1, "dept": "Engineering", "faculty": "Science & Engineering", "auto_mean": 61.78, "nonnd_mean": 62.65, "gap": -0.86, "n_auto": 48}, {"module": "Cellular Pathology", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 63.09, "nonnd_mean": 63.97, "gap": -0.87, "n_auto": 74}, {"module": "Introduction to Printmaking Techniques", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 60.97, "nonnd_mean": 61.86, "gap": -0.89, "n_auto": 58}, {"module": "The Alchemy of Fermentation", "format": "Professional artefact", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 63.44, "nonnd_mean": 64.43, "gap": -0.99, "n_auto": 68}, {"module": "Performance & Reward Management", "format": "Multi-choice exam", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 62.47, "nonnd_mean": 63.49, "gap": -1.02, "n_auto": 36}, {"module": "Political Economy of Media", "format": "Presentation", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 58.3, "nonnd_mean": 59.34, "gap": -1.03, "n_auto": 20}, {"module": "Introduction to Mycology & Mycelial Systems", "format": "Written coursework", "year": 1, "dept": "Modern Technologies", "faculty": "Science & Engineering", "auto_mean": 61.02, "nonnd_mean": 62.05, "gap": -1.04, "n_auto": 86}, {"module": "Land Law", "format": "Written exam", "year": 2, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 57.77, "nonnd_mean": 58.81, "gap": -1.05, "n_auto": 36}, {"module": "Interoperability of Magical & Mechanical Systems", "format": "Written coursework", "year": 1, "dept": "Modern Technologies", "faculty": "Science & Engineering", "auto_mean": 63.04, "nonnd_mean": 64.2, "gap": -1.16, "n_auto": 86}, {"module": "Pregnancy & Prenatal Development", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 60.54, "nonnd_mean": 61.75, "gap": -1.21, "n_auto": 60}, {"module": "Design Studio II", "format": "Professional artefact", "year": 2, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 56.28, "nonnd_mean": 57.49, "gap": -1.21, "n_auto": 40}, {"module": "Dissertation / Field Research Project", "format": "Written coursework", "year": 3, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 52.66, "nonnd_mean": 53.88, "gap": -1.22, "n_auto": 28}, {"module": "Energy, Power & Light Systems", "format": "Written coursework", "year": 1, "dept": "Modern Technologies", "faculty": "Science & Engineering", "auto_mean": 62.16, "nonnd_mean": 63.4, "gap": -1.24, "n_auto": 86}, {"module": "Political History", "format": "Written exam", "year": 2, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 62.1, "nonnd_mean": 63.34, "gap": -1.24, "n_auto": 44}, {"module": "Geospatial Analysis", "format": "Written exam", "year": 2, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 58.92, "nonnd_mean": 60.23, "gap": -1.31, "n_auto": 40}, {"module": "Fieldwork & Excavation Techniques", "format": "Professional artefact", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 58.68, "nonnd_mean": 60.01, "gap": -1.33, "n_auto": 44}, {"module": "Global Historical Perspectives", "format": "Written exam", "year": 3, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 60.46, "nonnd_mean": 61.8, "gap": -1.34, "n_auto": 34}, {"module": "Introduction to Systems Thinking", "format": "Written coursework", "year": 1, "dept": "Engineering", "faculty": "Science & Engineering", "auto_mean": 60.94, "nonnd_mean": 62.28, "gap": -1.35, "n_auto": 48}, {"module": "Yeasts, Bacteria, and Microbial Worlds", "format": "Written coursework", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 63.03, "nonnd_mean": 64.39, "gap": -1.36, "n_auto": 68}, {"module": "Surface Finishing & Treatment", "format": "Professional artefact", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 60.69, "nonnd_mean": 62.05, "gap": -1.36, "n_auto": 28}, {"module": "Occupation & Daily Living", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 61.37, "nonnd_mean": 62.75, "gap": -1.38, "n_auto": 54}, {"module": "Forging for Fit: Joints, Hinges, and Mechanisms", "format": "Professional artefact", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 58.48, "nonnd_mean": 59.86, "gap": -1.38, "n_auto": 28}, {"module": "Introduction to Sociology", "format": "Written exam", "year": 1, "dept": "Psychology & Sociology", "faculty": "Culture & Social Sciences", "auto_mean": 62.58, "nonnd_mean": 64.01, "gap": -1.43, "n_auto": 70}, {"module": "Evolutionary Biology", "format": "Written coursework", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 61.08, "nonnd_mean": 62.53, "gap": -1.45, "n_auto": 48}, {"module": "Strategic Entrepreneurship", "format": "Written coursework", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 57.14, "nonnd_mean": 58.61, "gap": -1.47, "n_auto": 26}, {"module": "Movement, Breath & Awareness Practices", "format": "Written coursework", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 61.58, "nonnd_mean": 63.05, "gap": -1.47, "n_auto": 40}, {"module": "Drawing & Image Development", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 62.19, "nonnd_mean": 63.69, "gap": -1.5, "n_auto": 58}, {"module": "Economic History of Realms", "format": "Written exam", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 60.07, "nonnd_mean": 61.61, "gap": -1.54, "n_auto": 62}, {"module": "Contract Law", "format": "Written exam", "year": 1, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 61.25, "nonnd_mean": 62.89, "gap": -1.64, "n_auto": 50}, {"module": "Materials & Processes", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 61.77, "nonnd_mean": 63.48, "gap": -1.71, "n_auto": 50}, {"module": "Special Subject in History", "format": "Viva", "year": 3, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 55.67, "nonnd_mean": 57.4, "gap": -1.74, "n_auto": 34}, {"module": "Anatomy & Physiology", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 60.2, "nonnd_mean": 61.96, "gap": -1.76, "n_auto": 124}, {"module": "Ecology & Ecosystems", "format": "Groupwork", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 61.47, "nonnd_mean": 63.25, "gap": -1.78, "n_auto": 74}, {"module": "Drawing & Spatial Visualisation", "format": "Practical exam", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 61.55, "nonnd_mean": 63.34, "gap": -1.79, "n_auto": 64}, {"module": "Media Theory", "format": "Written exam", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 57.8, "nonnd_mean": 59.63, "gap": -1.82, "n_auto": 28}, {"module": "International Law", "format": "Viva", "year": 3, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 54.24, "nonnd_mean": 56.07, "gap": -1.82, "n_auto": 36}, {"module": "Classical Mechanics", "format": "Written coursework", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 59.91, "nonnd_mean": 61.74, "gap": -1.83, "n_auto": 16}, {"module": "Historiography", "format": "Presentation", "year": 2, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 58.39, "nonnd_mean": 60.27, "gap": -1.87, "n_auto": 44}, {"module": "Public Heritage", "format": "Professional artefact", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 59.17, "nonnd_mean": 61.04, "gap": -1.87, "n_auto": 30}, {"module": "Accounting and Reporting", "format": "Groupwork", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 60.22, "nonnd_mean": 62.11, "gap": -1.88, "n_auto": 20}, {"module": "Cognitive Psychology", "format": "Written exam", "year": 1, "dept": "Psychology & Sociology", "faculty": "Culture & Social Sciences", "auto_mean": 61.98, "nonnd_mean": 63.86, "gap": -1.88, "n_auto": 70}, {"module": "Professionalism & Ethics in Care", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 59.39, "nonnd_mean": 61.28, "gap": -1.89, "n_auto": 54}, {"module": "Fieldwork: Documenting and Mapping", "format": "Professional artefact", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 56.4, "nonnd_mean": 58.3, "gap": -1.9, "n_auto": 44}, {"module": "Foundations of Vital Energies", "format": "Professional artefact", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 59.75, "nonnd_mean": 61.66, "gap": -1.91, "n_auto": 64}, {"module": "Events Management", "format": "Multi-choice exam", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 59.74, "nonnd_mean": 61.65, "gap": -1.91, "n_auto": 32}, {"module": "Energy Systems & Balance", "format": "Presentation", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 59.43, "nonnd_mean": 61.35, "gap": -1.92, "n_auto": 24}, {"module": "Studio Practice", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.1, "nonnd_mean": 61.04, "gap": -1.93, "n_auto": 52}, {"module": "General Chemistry Principles", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 60.21, "nonnd_mean": 62.19, "gap": -1.99, "n_auto": 74}, {"module": "Contemporary Art Theory", "format": "Written exam", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.2, "nonnd_mean": 61.24, "gap": -2.04, "n_auto": 36}, {"module": "Calculus & Algebra", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 60.72, "nonnd_mean": 62.76, "gap": -2.04, "n_auto": 40}, {"module": "Professional Practice in Music", "format": "Presentation", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.85, "nonnd_mean": 58.9, "gap": -2.05, "n_auto": 38}, {"module": "Quality Control & Sensory Analysis", "format": "Viva", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 55.45, "nonnd_mean": 57.52, "gap": -2.06, "n_auto": 114}, {"module": "EU Law", "format": "Written exam", "year": 2, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 60.58, "nonnd_mean": 62.65, "gap": -2.07, "n_auto": 36}, {"module": "Capstone: Create a Heritage-Inspired Brew Line", "format": "Written coursework", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 57.48, "nonnd_mean": 59.56, "gap": -2.08, "n_auto": 64}, {"module": "Company Law", "format": "Viva", "year": 3, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 53.12, "nonnd_mean": 55.22, "gap": -2.1, "n_auto": 36}, {"module": "Foundations of Somatic Awareness", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 60.36, "nonnd_mean": 62.57, "gap": -2.21, "n_auto": 88}, {"module": "Cell Biology & Life Processes", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 60.06, "nonnd_mean": 62.27, "gap": -2.22, "n_auto": 58}, {"module": "Portfolio Development", "format": "Professional artefact", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 55.63, "nonnd_mean": 57.88, "gap": -2.25, "n_auto": 92}, {"module": "Performance III / Recital", "format": "Professional artefact", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 49.93, "nonnd_mean": 52.23, "gap": -2.3, "n_auto": 38}, {"module": "Introduction to Fashion Design", "format": "Professional artefact", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 61.87, "nonnd_mean": 64.19, "gap": -2.32, "n_auto": 64}, {"module": "Emerging Markets & Trade Policy", "format": "Viva", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 56.34, "nonnd_mean": 58.68, "gap": -2.34, "n_auto": 26}, {"module": "Physiology & Pathophysiology", "format": "Groupwork", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 59.82, "nonnd_mean": 62.19, "gap": -2.37, "n_auto": 88}, {"module": "Biology & Physiology", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 60.75, "nonnd_mean": 63.12, "gap": -2.37, "n_auto": 54}, {"module": "Musicology", "format": "Groupwork", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.77, "nonnd_mean": 59.17, "gap": -2.4, "n_auto": 38}, {"module": "Research Methods in Geography", "format": "Written coursework", "year": 2, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 59.13, "nonnd_mean": 61.54, "gap": -2.41, "n_auto": 40}, {"module": "Employment Relations", "format": "Groupwork", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 60.96, "nonnd_mean": 63.38, "gap": -2.42, "n_auto": 44}, {"module": "Architectural History & Theory II", "format": "Viva", "year": 2, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 55.12, "nonnd_mean": 57.54, "gap": -2.42, "n_auto": 40}, {"module": "Anatomy, Physiology & Movement", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 58.92, "nonnd_mean": 61.34, "gap": -2.43, "n_auto": 86}, {"module": "Strategic Hospitality Management", "format": "Viva", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 55.27, "nonnd_mean": 57.71, "gap": -2.44, "n_auto": 24}, {"module": "Inorganic Chemistry", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 60.49, "nonnd_mean": 62.95, "gap": -2.45, "n_auto": 40}, {"module": "Business Operations", "format": "Groupwork", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 62.23, "nonnd_mean": 64.7, "gap": -2.47, "n_auto": 50}, {"module": "Professional Practice in Fashion", "format": "Professional artefact", "year": 3, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 56.2, "nonnd_mean": 58.68, "gap": -2.47, "n_auto": 30}, {"module": "Digital Design Skills", "format": "Practical exam", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 59.91, "nonnd_mean": 62.39, "gap": -2.48, "n_auto": 24}, {"module": "Major Project / Dissertation", "format": "Written coursework", "year": 3, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 52.56, "nonnd_mean": 55.04, "gap": -2.48, "n_auto": 30}, {"module": "Person Analytics", "format": "Written coursework", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 57.58, "nonnd_mean": 60.11, "gap": -2.53, "n_auto": 36}, {"module": "Drawing & Image-Making", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 60.87, "nonnd_mean": 63.41, "gap": -2.54, "n_auto": 78}, {"module": "Professional Skills for Artists", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 60.32, "nonnd_mean": 62.88, "gap": -2.56, "n_auto": 52}, {"module": "Structures & Structural Design", "format": "Presentation", "year": 2, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 59.46, "nonnd_mean": 62.04, "gap": -2.58, "n_auto": 40}, {"module": "Digital Skills for Illustrators", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 60.33, "nonnd_mean": 62.91, "gap": -2.58, "n_auto": 78}, {"module": "Ecology & Biodiversity", "format": "Written coursework", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 60.56, "nonnd_mean": 63.25, "gap": -2.7, "n_auto": 40}, {"module": "Introduction to Psychology", "format": "Written exam", "year": 1, "dept": "Psychology & Sociology", "faculty": "Culture & Social Sciences", "auto_mean": 61.57, "nonnd_mean": 64.27, "gap": -2.7, "n_auto": 134}, {"module": "Dissertation / Research Project", "format": "Written coursework", "year": 3, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 50.55, "nonnd_mean": 53.27, "gap": -2.72, "n_auto": 36}, {"module": "Character & Concept Design", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.05, "nonnd_mean": 61.77, "gap": -2.72, "n_auto": 56}, {"module": "People Resource Management", "format": "Written exam", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 59.14, "nonnd_mean": 61.9, "gap": -2.76, "n_auto": 28}, {"module": "Hospitality Operations Management", "format": "Written exam", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 59.55, "nonnd_mean": 62.3, "gap": -2.76, "n_auto": 32}, {"module": "Calendars, Seasons & Festivals", "format": "Written coursework", "year": 1, "dept": "Philosophy and Religion", "faculty": "Culture & Social Sciences", "auto_mean": 61.58, "nonnd_mean": 64.35, "gap": -2.77, "n_auto": 50}, {"module": "Alloy Theory and Practical Metallurgy", "format": "Professional artefact", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 59.52, "nonnd_mean": 62.29, "gap": -2.77, "n_auto": 28}, {"module": "Corporate Finance", "format": "Written coursework", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 57.43, "nonnd_mean": 60.24, "gap": -2.81, "n_auto": 48}, {"module": "Professional Practice", "format": "Professional artefact", "year": 3, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 52.52, "nonnd_mean": 55.33, "gap": -2.81, "n_auto": 52}, {"module": "Hospitality Entrepreneurship", "format": "Groupwork", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 55.73, "nonnd_mean": 58.56, "gap": -2.84, "n_auto": 24}, {"module": "Public History", "format": "Viva", "year": 3, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 55.54, "nonnd_mean": 58.39, "gap": -2.86, "n_auto": 34}, {"module": "Organisational Behaviour", "format": "Multi-choice exam", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 60.99, "nonnd_mean": 63.88, "gap": -2.88, "n_auto": 76}, {"module": "Learning Theories", "format": "Practical exam", "year": 1, "dept": "Education", "faculty": "Health & Education", "auto_mean": 60.32, "nonnd_mean": 63.23, "gap": -2.9, "n_auto": 44}, {"module": "Archival Research Methods", "format": "Written coursework", "year": 2, "dept": "History", "faculty": "Culture & Social Sciences", "auto_mean": 57.65, "nonnd_mean": 60.59, "gap": -2.93, "n_auto": 44}, {"module": "Workshop Practice & Safety", "format": "Professional artefact", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 60.99, "nonnd_mean": 63.94, "gap": -2.96, "n_auto": 44}, {"module": "Material Culture Studies", "format": "Written exam", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 57.77, "nonnd_mean": 60.73, "gap": -2.96, "n_auto": 44}, {"module": "Dissertation / Research Project", "format": "Written coursework", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 51.35, "nonnd_mean": 54.32, "gap": -2.97, "n_auto": 50}, {"module": "Supply Chain Management", "format": "Written coursework", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 58.15, "nonnd_mean": 61.12, "gap": -2.97, "n_auto": 38}, {"module": "New Venture Creation", "format": "Written exam", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 60.64, "nonnd_mean": 63.62, "gap": -2.98, "n_auto": 38}, {"module": "Therapeutic Interventions & Techniques", "format": "Written coursework", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 61.15, "nonnd_mean": 64.13, "gap": -2.98, "n_auto": 72}, {"module": "History of Conflicts", "format": "Written exam", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 59.52, "nonnd_mean": 62.52, "gap": -3.0, "n_auto": 62}, {"module": "Development & Lifespan", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 59.02, "nonnd_mean": 62.08, "gap": -3.06, "n_auto": 88}, {"module": "Chemistry of Beer & Fermentation", "format": "Professional artefact", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 60.84, "nonnd_mean": 63.92, "gap": -3.08, "n_auto": 68}, {"module": "Stories, Myths & Power", "format": "Written coursework", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 60.84, "nonnd_mean": 63.93, "gap": -3.09, "n_auto": 62}, {"module": "Studio Practice III", "format": "Viva", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.42, "nonnd_mean": 59.54, "gap": -3.12, "n_auto": 20}, {"module": "Disease Mechanisms", "format": "Practical exam", "year": 2, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 54.91, "nonnd_mean": 58.07, "gap": -3.16, "n_auto": 16}, {"module": "Editorial & Publishing Illustration", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.48, "nonnd_mean": 62.65, "gap": -3.17, "n_auto": 56}, {"module": "Speculative Restoration: Imagining Futures from Fragments", "format": "Groupwork", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 54.09, "nonnd_mean": 57.27, "gap": -3.18, "n_auto": 30}, {"module": "Sustainable Interior Design", "format": "Viva", "year": 3, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 56.36, "nonnd_mean": 59.58, "gap": -3.22, "n_auto": 42}, {"module": "Brewing Traditions and Cultural Practice", "format": "Professional artefact", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 60.57, "nonnd_mean": 63.79, "gap": -3.22, "n_auto": 68}, {"module": "Reading the Object: Material Histories and Markings", "format": "Groupwork", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 60.57, "nonnd_mean": 63.79, "gap": -3.22, "n_auto": 58}, {"module": "Form and Function: Design Studio I", "format": "Groupwork", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 60.1, "nonnd_mean": 63.33, "gap": -3.23, "n_auto": 28}, {"module": "Cultural Entanglements in Artefact Recovery", "format": "Professional artefact", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 59.19, "nonnd_mean": 62.44, "gap": -3.25, "n_auto": 44}, {"module": "Fermentation Futures: Probiotics, Policy, and Place", "format": "Written coursework", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 56.96, "nonnd_mean": 60.21, "gap": -3.25, "n_auto": 50}, {"module": "Jurisprudence", "format": "Viva", "year": 3, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 53.18, "nonnd_mean": 56.46, "gap": -3.28, "n_auto": 36}, {"module": "Foundations of Lifespan Learning", "format": "Written coursework", "year": 1, "dept": "Education", "faculty": "Health & Education", "auto_mean": 59.19, "nonnd_mean": 62.47, "gap": -3.29, "n_auto": 62}, {"module": "Materials & Metallurgy", "format": "Written coursework", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 61.19, "nonnd_mean": 64.48, "gap": -3.3, "n_auto": 44}, {"module": "Chemistry and Safety in Ferment Labs", "format": "Practical exam", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 58.98, "nonnd_mean": 62.34, "gap": -3.36, "n_auto": 64}, {"module": "Financial Accounting", "format": "Written exam", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 62.61, "nonnd_mean": 66.0, "gap": -3.39, "n_auto": 38}, {"module": "Tourism Planning & Development", "format": "Written coursework", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 61.78, "nonnd_mean": 65.23, "gap": -3.45, "n_auto": 32}, {"module": "Self-Promotion & Freelancing", "format": "Professional artefact", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 55.04, "nonnd_mean": 58.5, "gap": -3.46, "n_auto": 52}, {"module": "Pattern Cutting & Garment Construction", "format": "Written coursework", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 61.03, "nonnd_mean": 64.51, "gap": -3.48, "n_auto": 64}, {"module": "Critical Studies in Contemporary Art", "format": "Written exam", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 55.8, "nonnd_mean": 59.3, "gap": -3.5, "n_auto": 44}, {"module": "Typography & Runography", "format": "Professional artefact", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 59.33, "nonnd_mean": 62.84, "gap": -3.51, "n_auto": 24}, {"module": "Business Analytics", "format": "Written coursework", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 56.75, "nonnd_mean": 60.27, "gap": -3.52, "n_auto": 28}, {"module": "World Prehistory", "format": "Written exam", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 59.46, "nonnd_mean": 63.0, "gap": -3.53, "n_auto": 58}, {"module": "Governance Traditions of the Forest Realms", "format": "Written exam", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 58.61, "nonnd_mean": 62.19, "gap": -3.58, "n_auto": 62}, {"module": "Advanced Spatial Design", "format": "Professional artefact", "year": 3, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 53.83, "nonnd_mean": 57.42, "gap": -3.59, "n_auto": 42}, {"module": "Introduction to Pharmacy Practice", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 58.29, "nonnd_mean": 61.88, "gap": -3.59, "n_auto": 88}, {"module": "Introduction to Hospitality & Tourism", "format": "Written coursework", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 60.91, "nonnd_mean": 64.5, "gap": -3.6, "n_auto": 50}, {"module": "Materials & Finishes", "format": "Professional artefact", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 59.38, "nonnd_mean": 63.02, "gap": -3.64, "n_auto": 64}, {"module": "Introduction to Metalworking", "format": "Professional artefact", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 59.42, "nonnd_mean": 63.09, "gap": -3.67, "n_auto": 44}, {"module": "Marketing Fundamentals", "format": "Written coursework", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 59.18, "nonnd_mean": 62.94, "gap": -3.76, "n_auto": 108}, {"module": "Postnatal Care & Neonatal Health", "format": "Written coursework", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 56.35, "nonnd_mean": 60.12, "gap": -3.77, "n_auto": 44}, {"module": "Designing Flavour: Herbs, Temperature, and Time", "format": "Professional artefact", "year": 2, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 58.48, "nonnd_mean": 62.29, "gap": -3.8, "n_auto": 64}, {"module": "Symbols, Dress & Pageantry", "format": "Written coursework", "year": 1, "dept": "Philosophy and Religion", "faculty": "Culture & Social Sciences", "auto_mean": 62.22, "nonnd_mean": 66.07, "gap": -3.85, "n_auto": 56}, {"module": "Physiology of Organisms", "format": "Practical exam", "year": 2, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 57.31, "nonnd_mean": 61.15, "gap": -3.85, "n_auto": 16}, {"module": "Professional Development", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.51, "nonnd_mean": 60.36, "gap": -3.85, "n_auto": 36}, {"module": "Experimental Photographic Processes", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 58.73, "nonnd_mean": 62.64, "gap": -3.91, "n_auto": 52}, {"module": "Field Practice & Observation", "format": "Groupwork", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 59.23, "nonnd_mean": 63.14, "gap": -3.91, "n_auto": 44}, {"module": "Materials of the Modern Age", "format": "Practical exam", "year": 1, "dept": "Modern Technologies", "faculty": "Science & Engineering", "auto_mean": 60.7, "nonnd_mean": 64.63, "gap": -3.93, "n_auto": 34}, {"module": "Interior Design Studio", "format": "Professional artefact", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 57.18, "nonnd_mean": 61.12, "gap": -3.94, "n_auto": 52}, {"module": "Narrative Illustration", "format": "Groupwork", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 57.27, "nonnd_mean": 61.22, "gap": -3.94, "n_auto": 56}, {"module": "Environmental Change", "format": "Written exam", "year": 2, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 58.29, "nonnd_mean": 62.24, "gap": -3.95, "n_auto": 40}, {"module": "Foundations of Mind-Body Systems", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 60.85, "nonnd_mean": 64.85, "gap": -4.0, "n_auto": 46}, {"module": "Architectural History & Theory I", "format": "Written exam", "year": 1, "dept": "Architecture", "faculty": "Craft, Art & Architecture", "auto_mean": 59.29, "nonnd_mean": 63.31, "gap": -4.02, "n_auto": 58}, {"module": "Principles of Mentorship", "format": "Written coursework", "year": 1, "dept": "Education", "faculty": "Health & Education", "auto_mean": 60.04, "nonnd_mean": 64.07, "gap": -4.03, "n_auto": 44}, {"module": "Music Technology", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 57.47, "nonnd_mean": 61.51, "gap": -4.04, "n_auto": 46}, {"module": "Studio Practice II", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.42, "nonnd_mean": 63.47, "gap": -4.04, "n_auto": 36}, {"module": "Microbiology & Immunity", "format": "Practical exam", "year": 2, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 56.95, "nonnd_mean": 60.98, "gap": -4.04, "n_auto": 26}, {"module": "Exhibition Practice", "format": "Professional artefact", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 54.76, "nonnd_mean": 58.81, "gap": -4.05, "n_auto": 20}, {"module": "Fashion History & Context", "format": "Written exam", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 59.48, "nonnd_mean": 63.53, "gap": -4.05, "n_auto": 64}, {"module": "Global Trade & Investment", "format": "Multi-choice exam", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 59.18, "nonnd_mean": 63.25, "gap": -4.07, "n_auto": 38}, {"module": "Criminal Law", "format": "Written exam", "year": 1, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 60.59, "nonnd_mean": 64.78, "gap": -4.2, "n_auto": 50}, {"module": "Plant Identification & Ecology", "format": "Groupwork", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 58.73, "nonnd_mean": 62.93, "gap": -4.2, "n_auto": 46}, {"module": "Performance I", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.94, "nonnd_mean": 64.15, "gap": -4.21, "n_auto": 54}, {"module": "Quantitative Methods", "format": "Written coursework", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 60.4, "nonnd_mean": 64.66, "gap": -4.26, "n_auto": 84}, {"module": "Advanced Music Theory", "format": "Written exam", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 55.97, "nonnd_mean": 60.3, "gap": -4.33, "n_auto": 46}, {"module": "Professional Practice & Ethics", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 58.21, "nonnd_mean": 62.61, "gap": -4.4, "n_auto": 88}, {"module": "Introduction to Social Work", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 58.24, "nonnd_mean": 62.7, "gap": -4.47, "n_auto": 56}, {"module": "Equity & Trusts", "format": "Groupwork", "year": 2, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 55.92, "nonnd_mean": 60.41, "gap": -4.48, "n_auto": 36}, {"module": "Studio Practice I", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 57.97, "nonnd_mean": 62.47, "gap": -4.5, "n_auto": 50}, {"module": "Lighting & Environmental Design", "format": "Groupwork", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 56.49, "nonnd_mean": 60.99, "gap": -4.51, "n_auto": 52}, {"module": "Advanced Cyanotype & Alternative Photography", "format": "Professional artefact", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 53.42, "nonnd_mean": 57.93, "gap": -4.52, "n_auto": 44}, {"module": "Moral Philosophy", "format": "Written coursework", "year": 1, "dept": "Philosophy and Religion", "faculty": "Culture & Social Sciences", "auto_mean": 59.62, "nonnd_mean": 64.14, "gap": -4.52, "n_auto": 50}, {"module": "Major Project / Dissertation", "format": "Written coursework", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 50.59, "nonnd_mean": 55.12, "gap": -4.52, "n_auto": 20}, {"module": "Media Audiences & Representation", "format": "Presentation", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 59.95, "nonnd_mean": 64.53, "gap": -4.58, "n_auto": 56}, {"module": "Adult, Child & Mental Health Nursing", "format": "Presentation", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 56.85, "nonnd_mean": 61.49, "gap": -4.64, "n_auto": 44}, {"module": "Learning & Development", "format": "Written coursework", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 58.19, "nonnd_mean": 62.83, "gap": -4.64, "n_auto": 36}, {"module": "Physical Geography", "format": "Groupwork", "year": 1, "dept": "Geography", "faculty": "Culture & Social Sciences", "auto_mean": 58.81, "nonnd_mean": 63.46, "gap": -4.65, "n_auto": 38}, {"module": "Management Accounting", "format": "Multi-choice exam", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 58.8, "nonnd_mean": 63.46, "gap": -4.66, "n_auto": 38}, {"module": "Introduction to Multispecies Communication", "format": "Groupwork", "year": 1, "dept": "Languages", "faculty": "Culture & Social Sciences", "auto_mean": 59.12, "nonnd_mean": 63.81, "gap": -4.68, "n_auto": 90}, {"module": "Textiles & Fabric Innovation", "format": "Presentation", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 58.03, "nonnd_mean": 62.82, "gap": -4.79, "n_auto": 50}, {"module": "Entrepreneurial Finance", "format": "Written coursework", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 55.44, "nonnd_mean": 60.25, "gap": -4.81, "n_auto": 38}, {"module": "Major Design Project", "format": "Professional artefact", "year": 3, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 48.04, "nonnd_mean": 52.86, "gap": -4.82, "n_auto": 10}, {"module": "Principles of Economics", "format": "Written exam", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 58.8, "nonnd_mean": 63.66, "gap": -4.85, "n_auto": 106}, {"module": "Sustainable Tourism", "format": "Viva", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 53.2, "nonnd_mean": 58.08, "gap": -4.88, "n_auto": 24}, {"module": "Diversity & Inclusion", "format": "Written coursework", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 55.0, "nonnd_mean": 59.9, "gap": -4.91, "n_auto": 24}, {"module": "Talent Management & Resourcing", "format": "Written exam", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 58.14, "nonnd_mean": 63.06, "gap": -4.93, "n_auto": 36}, {"module": "Introduction to Herbal Lore", "format": "Groupwork", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 59.19, "nonnd_mean": 64.14, "gap": -4.95, "n_auto": 50}, {"module": "Foundations of Midwifery Care", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 58.98, "nonnd_mean": 63.94, "gap": -4.96, "n_auto": 64}, {"module": "Introduction to Contemporary Arcane-Technics", "format": "Practical exam", "year": 1, "dept": "Modern Technologies", "faculty": "Science & Engineering", "auto_mean": 59.07, "nonnd_mean": 64.07, "gap": -5.0, "n_auto": 116}, {"module": "Modelling", "format": "Professional artefact", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 58.4, "nonnd_mean": 63.42, "gap": -5.02, "n_auto": 52}, {"module": "Communication & Coaching Skills", "format": "Written coursework", "year": 1, "dept": "Education", "faculty": "Health & Education", "auto_mean": 59.59, "nonnd_mean": 64.61, "gap": -5.02, "n_auto": 62}, {"module": "Leadership & Change Management", "format": "Multi-choice exam", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 58.02, "nonnd_mean": 63.19, "gap": -5.17, "n_auto": 24}, {"module": "Dissertation / Research Project", "format": "Written coursework", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 46.26, "nonnd_mean": 51.44, "gap": -5.18, "n_auto": 24}, {"module": "Design History & Theory", "format": "Written coursework", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 53.58, "nonnd_mean": 58.82, "gap": -5.24, "n_auto": 22}, {"module": "Drawing & Visual Language", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 60.4, "nonnd_mean": 65.66, "gap": -5.27, "n_auto": 50}, {"module": "Foundations of Elven Moral Thought", "format": "Written coursework", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 58.24, "nonnd_mean": 63.55, "gap": -5.31, "n_auto": 54}, {"module": "Customer Experience Management", "format": "Multi-choice exam", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 57.75, "nonnd_mean": 63.07, "gap": -5.31, "n_auto": 50}, {"module": "Principles of Conservation and Ethical Restoration", "format": "Groupwork", "year": 1, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 57.77, "nonnd_mean": 63.14, "gap": -5.37, "n_auto": 58}, {"module": "Interdisciplinary Practice", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.36, "nonnd_mean": 61.74, "gap": -5.38, "n_auto": 36}, {"module": "Exhibition & Portfolio Development", "format": "Written coursework", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 52.11, "nonnd_mean": 57.5, "gap": -5.39, "n_auto": 44}, {"module": "Child & Adolescent Development", "format": "Professional artefact", "year": 1, "dept": "Education", "faculty": "Health & Education", "auto_mean": 58.16, "nonnd_mean": 63.55, "gap": -5.4, "n_auto": 62}, {"module": "Legal System & Skills", "format": "Practical exam", "year": 1, "dept": "Law", "faculty": "Business & Law School", "auto_mean": 55.47, "nonnd_mean": 60.91, "gap": -5.45, "n_auto": 50}, {"module": "Ancient Civilisations", "format": "Professional artefact", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 52.71, "nonnd_mean": 58.18, "gap": -5.47, "n_auto": 30}, {"module": "Pharmaceutical Chemistry", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 57.75, "nonnd_mean": 63.24, "gap": -5.49, "n_auto": 56}, {"module": "Introduction to Marketing", "format": "Written coursework", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 59.23, "nonnd_mean": 64.76, "gap": -5.53, "n_auto": 90}, {"module": "Final Interior Design Project", "format": "Professional artefact", "year": 3, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 46.87, "nonnd_mean": 52.5, "gap": -5.63, "n_auto": 42}, {"module": "Visual Communication", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 57.9, "nonnd_mean": 63.56, "gap": -5.66, "n_auto": 102}, {"module": "Draping & Advanced Construction", "format": "Professional artefact", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 57.01, "nonnd_mean": 62.72, "gap": -5.71, "n_auto": 50}, {"module": "Fashion Marketing & Branding", "format": "Written exam", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 56.15, "nonnd_mean": 61.86, "gap": -5.71, "n_auto": 50}, {"module": "Introduction to Illustration", "format": "Written coursework", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 57.93, "nonnd_mean": 63.66, "gap": -5.73, "n_auto": 78}, {"module": "Principles of Management", "format": "Written exam", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 59.21, "nonnd_mean": 64.96, "gap": -5.75, "n_auto": 32}, {"module": "Business Economics", "format": "Written exam", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 58.62, "nonnd_mean": 64.4, "gap": -5.77, "n_auto": 128}, {"module": "Grammar & Linguistics", "format": "Written exam", "year": 1, "dept": "Languages", "faculty": "Culture & Social Sciences", "auto_mean": 58.47, "nonnd_mean": 64.4, "gap": -5.93, "n_auto": 90}, {"module": "Discrete Mathematics", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 54.73, "nonnd_mean": 60.7, "gap": -5.97, "n_auto": 16}, {"module": "Music Analysis", "format": "Written exam", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.68, "nonnd_mean": 62.64, "gap": -5.97, "n_auto": 46}, {"module": "Communication & Mediation Skills", "format": "Professional artefact", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 57.06, "nonnd_mean": 63.04, "gap": -5.98, "n_auto": 106}, {"module": "Introduction to Institutions", "format": "Written coursework", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 59.14, "nonnd_mean": 65.15, "gap": -6.0, "n_auto": 84}, {"module": "Negotiation & Diplomacy", "format": "Presentation", "year": 2, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 55.81, "nonnd_mean": 61.87, "gap": -6.06, "n_auto": 48}, {"module": "Drawing & Illustration for Fashion", "format": "Professional artefact", "year": 1, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 59.9, "nonnd_mean": 66.0, "gap": -6.1, "n_auto": 64}, {"module": "Memory, Myth & Storytelling", "format": "Written exam", "year": 1, "dept": "Philosophy and Religion", "faculty": "Culture & Social Sciences", "auto_mean": 57.25, "nonnd_mean": 63.35, "gap": -6.1, "n_auto": 50}, {"module": "Foundations of Physiotherapy", "format": "Practical exam", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 56.7, "nonnd_mean": 62.9, "gap": -6.2, "n_auto": 56}, {"module": "Foundations of Mechanics", "format": "Written coursework", "year": 1, "dept": "Engineering", "faculty": "Science & Engineering", "auto_mean": 57.74, "nonnd_mean": 64.01, "gap": -6.27, "n_auto": 48}, {"module": "Dissertation / Research Project", "format": "Written coursework", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 47.63, "nonnd_mean": 53.95, "gap": -6.32, "n_auto": 32}, {"module": "Introduction to Philosophy of Religion", "format": "Written exam", "year": 1, "dept": "Philosophy and Religion", "faculty": "Culture & Social Sciences", "auto_mean": 59.63, "nonnd_mean": 66.05, "gap": -6.42, "n_auto": 56}, {"module": "Critical & Contextual Studies", "format": "Written coursework", "year": 3, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 54.24, "nonnd_mean": 60.69, "gap": -6.45, "n_auto": 20}, {"module": "Composition I", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.64, "nonnd_mean": 63.13, "gap": -6.49, "n_auto": 54}, {"module": "Person-Centred Design", "format": "Professional artefact", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 53.96, "nonnd_mean": 60.47, "gap": -6.51, "n_auto": 74}, {"module": "Power, Identity & Society", "format": "Written exam", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 57.04, "nonnd_mean": 63.55, "gap": -6.51, "n_auto": 54}, {"module": "Music Theory & Harmony", "format": "Written exam", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 57.0, "nonnd_mean": 63.65, "gap": -6.65, "n_auto": 54}, {"module": "Pain, Recovery & Adaptation", "format": "Presentation", "year": 2, "dept": "Health", "faculty": "Health & Education", "auto_mean": 51.68, "nonnd_mean": 58.41, "gap": -6.73, "n_auto": 44}, {"module": "Art History & Context", "format": "Written exam", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 57.55, "nonnd_mean": 64.33, "gap": -6.78, "n_auto": 50}, {"module": "Foundations of Nursing Practice", "format": "Presentation", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 56.2, "nonnd_mean": 63.13, "gap": -6.93, "n_auto": 54}, {"module": "Music History", "format": "Written exam", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.66, "nonnd_mean": 63.77, "gap": -7.11, "n_auto": 54}, {"module": "Fashion Design Development", "format": "Professional artefact", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 55.79, "nonnd_mean": 63.05, "gap": -7.26, "n_auto": 50}, {"module": "Ethics, Law & Stewardship", "format": "Written exam", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 57.25, "nonnd_mean": 64.54, "gap": -7.3, "n_auto": 84}, {"module": "Business Operations", "format": "Groupwork", "year": 2, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 58.3, "nonnd_mean": 65.62, "gap": -7.32, "n_auto": 28}, {"module": "Introduction to Entrepreneurship", "format": "Presentation", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 57.16, "nonnd_mean": 64.52, "gap": -7.36, "n_auto": 58}, {"module": "Quantitative Methods for Business", "format": "Multi-choice exam", "year": 1, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 57.09, "nonnd_mean": 64.47, "gap": -7.38, "n_auto": 38}, {"module": "Media Industries & Institutions", "format": "Practical exam", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.17, "nonnd_mean": 63.6, "gap": -7.43, "n_auto": 56}, {"module": "Entrepreneurship", "format": "Groupwork", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 52.0, "nonnd_mean": 59.48, "gap": -7.48, "n_auto": 32}, {"module": "Dissertation / Research Project", "format": "Written coursework", "year": 3, "dept": "Craft", "faculty": "Craft, Art & Architecture", "auto_mean": 46.06, "nonnd_mean": 53.59, "gap": -7.53, "n_auto": 30}, {"module": "Markets, Trade & Resources", "format": "Written coursework", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 57.5, "nonnd_mean": 65.27, "gap": -7.76, "n_auto": 54}, {"module": "Anatomy & Physiology of Birth", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 56.88, "nonnd_mean": 64.72, "gap": -7.84, "n_auto": 54}, {"module": "Introduction to Media Studies", "format": "Written coursework", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 56.31, "nonnd_mean": 64.15, "gap": -7.85, "n_auto": 56}, {"module": "Media Production", "format": "Professional artefact", "year": 1, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 55.01, "nonnd_mean": 62.97, "gap": -7.96, "n_auto": 56}, {"module": "Practical Laboratory Techniques", "format": "Practical exam", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 53.79, "nonnd_mean": 61.82, "gap": -8.03, "n_auto": 16}, {"module": "Strategic Management", "format": "Viva", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 48.1, "nonnd_mean": 56.24, "gap": -8.14, "n_auto": 32}, {"module": "Performance II", "format": "Professional artefact", "year": 2, "dept": "Art", "faculty": "Craft, Art & Architecture", "auto_mean": 54.14, "nonnd_mean": 62.42, "gap": -8.28, "n_auto": 46}, {"module": "Branding & Identity Design", "format": "Professional artefact", "year": 2, "dept": "Design", "faculty": "Craft, Art & Architecture", "auto_mean": 52.41, "nonnd_mean": 60.72, "gap": -8.3, "n_auto": 22}, {"module": "Introduction to Politics", "format": "Written coursework", "year": 1, "dept": "Politics & Economics", "faculty": "Culture & Social Sciences", "auto_mean": 55.58, "nonnd_mean": 64.2, "gap": -8.62, "n_auto": 84}, {"module": "Business Ethics & Corporate Governance", "format": "Written coursework", "year": 3, "dept": "Business", "faculty": "Business & Law School", "auto_mean": 51.36, "nonnd_mean": 61.39, "gap": -10.03, "n_auto": 32}, {"module": "Introduction to Somatic Practice", "format": "Written coursework", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 53.95, "nonnd_mean": 64.4, "gap": -10.45, "n_auto": 54}, {"module": "Environmental Chemistry", "format": "Written coursework", "year": 1, "dept": "Sciences", "faculty": "Science & Engineering", "auto_mean": 53.38, "nonnd_mean": 64.11, "gap": -10.73, "n_auto": 16}, {"module": "Preparation & Safety in Herbal Practice", "format": "Groupwork", "year": 1, "dept": "Health", "faculty": "Health & Education", "auto_mean": 51.01, "nonnd_mean": 63.29, "gap": -12.28, "n_auto": 54}], "nss": [{"nd_type": "adhd", "teaching_quality": 3.863, "learning_opportunities": 3.813, "assessment_feedback": 3.374, "academic_support": 3.47, "organisation_management": 3.346, "learning_resources": 3.776, "student_voice": 3.801, "overall_satisfaction": 3.579}, {"nd_type": "autistic_spectrum", "teaching_quality": 4.149, "learning_opportunities": 3.944, "assessment_feedback": 3.629, "academic_support": 3.599, "organisation_management": 3.56, "learning_resources": 3.742, "student_voice": 3.48, "overall_satisfaction": 3.682}, {"nd_type": "communication_difficulties", "teaching_quality": 4.04, "learning_opportunities": 3.911, "assessment_feedback": 3.444, "academic_support": 3.323, "organisation_management": 3.419, "learning_resources": 3.823, "student_voice": 3.637, "overall_satisfaction": 3.444}, {"nd_type": "dyslexia", "teaching_quality": 3.942, "learning_opportunities": 3.883, "assessment_feedback": 3.396, "academic_support": 3.403, "organisation_management": 3.474, "learning_resources": 3.753, "student_voice": 3.669, "overall_satisfaction": 3.539}, {"nd_type": "non_nd", "teaching_quality": 4.121, "learning_opportunities": 3.926, "assessment_feedback": 3.81, "academic_support": 3.978, "organisation_management": 3.76, "learning_resources": 3.878, "student_voice": 3.777, "overall_satisfaction": 3.91}, {"nd_type": "other_neurodivergence", "teaching_quality": 3.95, "learning_opportunities": 3.843, "assessment_feedback": 3.585, "academic_support": 3.535, "organisation_management": 3.553, "learning_resources": 3.698, "student_voice": 3.874, "overall_satisfaction": 3.686}, {"nd_type": "specific_learning_disability", "teaching_quality": 3.898, "learning_opportunities": 3.843, "assessment_feedback": 3.37, "academic_support": 3.454, "organisation_management": 3.38, "learning_resources": 3.722, "student_voice": 3.713, "overall_satisfaction": 3.528}], "attend_by_week": [{"week_number": 1, "adhd": 0.761, "autistic_spectrum": 0.862, "non_nd": 0.852}, {"week_number": 2, "adhd": 0.758, "autistic_spectrum": 0.851, "non_nd": 0.85}, {"week_number": 3, "adhd": 0.728, "autistic_spectrum": 0.83, "non_nd": 0.822}, {"week_number": 4, "adhd": 0.725, "autistic_spectrum": 0.825, "non_nd": 0.822}, {"week_number": 5, "adhd": 0.731, "autistic_spectrum": 0.831, "non_nd": 0.821}, {"week_number": 6, "adhd": 0.651, "autistic_spectrum": 0.759, "non_nd": 0.739}, {"week_number": 7, "adhd": 0.648, "autistic_spectrum": 0.757, "non_nd": 0.74}, {"week_number": 8, "adhd": 0.64, "autistic_spectrum": 0.756, "non_nd": 0.74}, {"week_number": 9, "adhd": 0.73, "autistic_spectrum": 0.832, "non_nd": 0.821}, {"week_number": 10, "adhd": 0.717, "autistic_spectrum": 0.84, "non_nd": 0.831}, {"week_number": 11, "adhd": 0.719, "autistic_spectrum": 0.849, "non_nd": 0.831}, {"week_number": 12, "adhd": 0.72, "autistic_spectrum": 0.848, "non_nd": 0.832}], "survey_by_year": [{"programme_year": 1, "nd_type": "adhd", "career_clarity": 3.083, "career_confidence": 3.079, "belonging_peers": 3.351, "belonging_programme": 3.36, "academic_self_efficacy": 3.388, "support_satisfaction": 3.462}, {"programme_year": 1, "nd_type": "autistic_spectrum", "career_clarity": 3.216, "career_confidence": 3.217, "belonging_peers": 3.196, "belonging_programme": 3.204, "academic_self_efficacy": 3.641, "support_satisfaction": 3.421}, {"programme_year": 1, "nd_type": "communication_difficulties", "career_clarity": 3.179, "career_confidence": 3.151, "belonging_peers": 3.268, "belonging_programme": 3.232, "academic_self_efficacy": 3.497, "support_satisfaction": 3.399}, {"programme_year": 1, "nd_type": "dyslexia", "career_clarity": 3.121, "career_confidence": 3.11, "belonging_peers": 3.322, "belonging_programme": 3.292, "academic_self_efficacy": 3.487, "support_satisfaction": 3.434}, {"programme_year": 1, "nd_type": "non_nd", "career_clarity": 3.169, "career_confidence": 3.166, "belonging_peers": 3.271, "belonging_programme": 3.276, "academic_self_efficacy": 3.588, "support_satisfaction": 3.505}, {"programme_year": 1, "nd_type": "other_neurodivergence", "career_clarity": 3.19, "career_confidence": 3.193, "belonging_peers": 3.302, "belonging_programme": 3.238, "academic_self_efficacy": 3.572, "support_satisfaction": 3.443}, {"programme_year": 1, "nd_type": "specific_learning_disability", "career_clarity": 3.127, "career_confidence": 3.165, "belonging_peers": 3.267, "belonging_programme": 3.262, "academic_self_efficacy": 3.556, "support_satisfaction": 3.456}, {"programme_year": 2, "nd_type": "adhd", "career_clarity": 3.714, "career_confidence": 3.741, "belonging_peers": 3.051, "belonging_programme": 3.046, "academic_self_efficacy": 3.553, "support_satisfaction": 3.442}, {"programme_year": 2, "nd_type": "autistic_spectrum", "career_clarity": 3.843, "career_confidence": 3.867, "belonging_peers": 2.943, "belonging_programme": 2.963, "academic_self_efficacy": 3.731, "support_satisfaction": 3.354}, {"programme_year": 2, "nd_type": "communication_difficulties", "career_clarity": 3.814, "career_confidence": 3.792, "belonging_peers": 2.983, "belonging_programme": 2.991, "academic_self_efficacy": 3.583, "support_satisfaction": 3.37}, {"programme_year": 2, "nd_type": "dyslexia", "career_clarity": 3.783, "career_confidence": 3.761, "belonging_peers": 3.024, "belonging_programme": 3.017, "academic_self_efficacy": 3.62, "support_satisfaction": 3.417}, {"programme_year": 2, "nd_type": "non_nd", "career_clarity": 3.81, "career_confidence": 3.808, "belonging_peers": 3.013, "belonging_programme": 3.012, "academic_self_efficacy": 3.667, "support_satisfaction": 3.433}, {"programme_year": 2, "nd_type": "other_neurodivergence", "career_clarity": 3.819, "career_confidence": 3.827, "belonging_peers": 3.016, "belonging_programme": 3.008, "academic_self_efficacy": 3.635, "support_satisfaction": 3.375}, {"programme_year": 2, "nd_type": "specific_learning_disability", "career_clarity": 3.768, "career_confidence": 3.776, "belonging_peers": 3.034, "belonging_programme": 2.983, "academic_self_efficacy": 3.618, "support_satisfaction": 3.405}, {"programme_year": 3, "nd_type": "adhd", "career_clarity": 4.131, "career_confidence": 4.122, "belonging_peers": 3.211, "belonging_programme": 3.206, "academic_self_efficacy": 3.639, "support_satisfaction": 3.497}, {"programme_year": 3, "nd_type": "autistic_spectrum", "career_clarity": 4.218, "career_confidence": 4.242, "belonging_peers": 3.103, "belonging_programme": 3.097, "academic_self_efficacy": 3.727, "support_satisfaction": 3.418}, {"programme_year": 3, "nd_type": "communication_difficulties", "career_clarity": 4.197, "career_confidence": 4.131, "belonging_peers": 3.131, "belonging_programme": 3.168, "academic_self_efficacy": 3.693, "support_satisfaction": 3.358}, {"programme_year": 3, "nd_type": "dyslexia", "career_clarity": 4.166, "career_confidence": 4.136, "belonging_peers": 3.148, "belonging_programme": 3.207, "academic_self_efficacy": 3.71, "support_satisfaction": 3.497}, {"programme_year": 3, "nd_type": "non_nd", "career_clarity": 4.178, "career_confidence": 4.18, "belonging_peers": 3.169, "belonging_programme": 3.171, "academic_self_efficacy": 3.701, "support_satisfaction": 3.473}, {"programme_year": 3, "nd_type": "other_neurodivergence", "career_clarity": 4.223, "career_confidence": 4.251, "belonging_peers": 3.12, "belonging_programme": 3.137, "academic_self_efficacy": 3.703, "support_satisfaction": 3.463}, {"programme_year": 3, "nd_type": "specific_learning_disability", "career_clarity": 4.183, "career_confidence": 4.13, "belonging_peers": 3.113, "belonging_programme": 3.2, "academic_self_efficacy": 3.757, "support_satisfaction": 3.452}], "format_gap": [{"assessment_type": "Groupwork", "adhd": 53.07, "autistic_spectrum": 58.85, "communication_difficulties": 51.96, "dyslexia": 54.29, "non_nd": 62.27, "other_neurodivergence": 58.76, "specific_learning_disability": 54.39}, {"assessment_type": "Multi-choice exam", "adhd": 52.06, "autistic_spectrum": 59.85, "communication_difficulties": 56.93, "dyslexia": 53.34, "non_nd": 63.34, "other_neurodivergence": 59.96, "specific_learning_disability": 54.14}, {"assessment_type": "Practical exam", "adhd": 51.92, "autistic_spectrum": 60.5, "communication_difficulties": 52.1, "dyslexia": 54.04, "non_nd": 62.6, "other_neurodivergence": 58.47, "specific_learning_disability": 55.13}, {"assessment_type": "Presentation", "adhd": 53.01, "autistic_spectrum": 58.82, "communication_difficulties": 52.31, "dyslexia": 53.69, "non_nd": 61.78, "other_neurodivergence": 58.83, "specific_learning_disability": 53.95}, {"assessment_type": "Professional artefact", "adhd": 52.33, "autistic_spectrum": 58.4, "communication_difficulties": 51.37, "dyslexia": 53.65, "non_nd": 61.39, "other_neurodivergence": 57.34, "specific_learning_disability": 53.21}, {"assessment_type": "Viva", "adhd": 52.2, "autistic_spectrum": 55.78, "communication_difficulties": 52.59, "dyslexia": 51.29, "non_nd": 57.8, "other_neurodivergence": 55.02, "specific_learning_disability": 50.76}, {"assessment_type": "Written coursework", "adhd": 52.32, "autistic_spectrum": 58.88, "communication_difficulties": 52.1, "dyslexia": 53.26, "non_nd": 61.58, "other_neurodivergence": 57.36, "specific_learning_disability": 53.32}, {"assessment_type": "Written exam", "adhd": 52.65, "autistic_spectrum": 59.95, "communication_difficulties": 53.76, "dyslexia": 53.82, "non_nd": 62.98, "other_neurodivergence": 58.65, "specific_learning_disability": 53.95}]};
+
+// ── colours ──────────────────────────────────────────────────────────────────
+const C = {
+  adhd:'#534AB7', autistic_spectrum:'#1D9E75', communication_difficulties:'#D85A30',
+  dyslexia:'#BA7517', non_nd:'#888780', other_neurodivergence:'#185FA5',
+  specific_learning_disability:'#993556'
+};
+const LABELS = {
+  adhd:'ADHD', autistic_spectrum:'Autistic', communication_difficulties:'Comm. diff.',
+  dyslexia:'Dyslexia', non_nd:'Non-ND', other_neurodivergence:'Other ND',
+  specific_learning_disability:'SpLD'
+};
+const ALL_TYPES = Object.keys(C);
+const ND_TYPES = ALL_TYPES.filter(t=>t!=='non_nd');
+const YEARS = ['1046-47','1047-48','1048-49','1049-50','1050-51','1051-52','1052-53'];
+
+// ── nav ───────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-link').forEach(a=>{
+  a.addEventListener('click',e=>{
+    e.preventDefault();
+    const sec = a.dataset.section;
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+    document.getElementById('section-'+sec).classList.add('active');
+    a.classList.add('active');
+    if(!chartsBuilt[sec]) buildSection(sec);
+  });
+});
+const chartsBuilt = {};
+
+// ── chart defaults ────────────────────────────────────────────────────────────
+function baseOpts(yLabel='',min=null,max=null){
+  return{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{font:{size:11},color:'#888'}}},
+    scales:{
+      x:{ticks:{font:{size:10},color:'#888'},grid:{color:'rgba(128,128,128,0.1)'}},
+      y:{min:min,max:max,ticks:{font:{size:10},color:'#888'},grid:{color:'rgba(128,128,128,0.1)'},
+         title:{display:!!yLabel,text:yLabel,color:'#888',font:{size:10}}}
+    }};
+}
+
+// ── helper ────────────────────────────────────────────────────────────────────
+function pivot(arr,keyField,valField,groupField){
+  const out={};
+  arr.forEach(r=>{
+    const k=r[keyField],g=r[groupField],v=r[valField];
+    if(!out[g])out[g]={};
+    out[g][k]=v;
+  });
+  return out;
+}
+function getVals(obj,keys){return keys.map(k=>obj[k]??null);}
+
+// ── OVERVIEW ──────────────────────────────────────────────────────────────────
+function buildOverview(){
+  // metrics
+  const el = document.getElementById('overview-metrics');
+  const last = '1052-53';
+  const ndCount = DATA.enrolment.filter(r=>r.academic_year===last&&r.nd_type!=='non_nd').reduce((s,r)=>s+r.count,0);
+  const total = DATA.enrolment.filter(r=>r.academic_year===last).reduce((s,r)=>s+r.count,0);
+  const pct = (ndCount/total*100).toFixed(1);
+  el.innerHTML=`
+    <div class="metric"><div class="val">${ndCount.toLocaleString()}</div><div class="lbl">ND students enrolled</div><div class="sub">${last} academic year</div></div>
+    <div class="metric"><div class="val">${pct}%</div><div class="lbl">of total enrolment</div><div class="sub">Stable across 7 years</div></div>
+    <div class="metric bad"><div class="val">−7.1 pts</div><div class="lbl">Overall ND mark gap</div><div class="sub">54.8 vs 61.8 non-ND</div></div>
+    <div class="metric bad"><div class="val">25.3%</div><div class="lbl">ND year fail rate</div><div class="sub">vs 11.0% non-ND</div></div>
+  `;
+
+  // enrolment chart (count by default)
+  const enrolByType = pivot(DATA.enrolment,'academic_year','count','nd_type');
+  const datasets = ND_TYPES.map(t=>({
+    label:LABELS[t],data:getVals(enrolByType[t]||{},YEARS),
+    backgroundColor:C[t]+'cc',borderRadius:2,stack:'a'
+  }));
+  window.enrolChart = new Chart(document.getElementById('enrolChart'),{
+    type:'bar',data:{labels:YEARS,datasets},
+    options:{...baseOpts('Students enrolled'),plugins:{legend:{labels:{font:{size:10},color:'#888'}}},
+      scales:{x:{stacked:true,ticks:{font:{size:10},color:'#888'},grid:{color:'rgba(128,128,128,0.1)'}},
+              y:{stacked:true,ticks:{font:{size:10},color:'#888'},grid:{color:'rgba(128,128,128,0.1)'}}}}
+  });
+
+  // marks chart
+  const filtersEl = document.getElementById('marks-filters');
+  let activeTypes = new Set(ALL_TYPES);
+  ALL_TYPES.forEach(t=>{
+    const b=document.createElement('button');
+    b.className='pill active';b.textContent=LABELS[t];
+    b.style.borderColor=C[t];b.style.color=C[t];
+    b.onclick=()=>{
+      if(activeTypes.has(t)){if(activeTypes.size>1){activeTypes.delete(t);b.classList.remove('active');b.style.background='';b.style.color=C[t];}}
+      else{activeTypes.add(t);b.classList.add('active');b.style.background=C[t]+'22';}
+      updateMarksChart();
+    };
+    filtersEl.appendChild(b);
+  });
+  const marksByType = pivot(DATA.marks_by_year,'academic_year','mean_mark','nd_type');
+  window.marksChart = new Chart(document.getElementById('marksChart'),{
+    type:'line',
+    data:{labels:YEARS,datasets:ALL_TYPES.map(t=>({
+      label:LABELS[t],data:getVals(marksByType[t]||{},YEARS),
+      borderColor:C[t],pointBackgroundColor:C[t],tension:.3,fill:false,
+      borderDash:t==='non_nd'?[4,3]:[],borderWidth:t==='non_nd'?1.5:2
+    }))},
+    options:{...baseOpts('Mean assessment mark',45,68)}
+  });
+  function updateMarksChart(){
+    window.marksChart.data.datasets.forEach(ds=>{
+      const t=Object.entries(LABELS).find(([k,v])=>v===ds.label)?.[0];
+      ds.hidden=t&&!activeTypes.has(t);
+    });
+    window.marksChart.update();
+  }
+}
+
+window.setEnrolView = function(mode,btn){
+  document.querySelectorAll('#section-overview .ctrl-row .pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const enrolByType = pivot(DATA.enrolment,'academic_year','count','nd_type');
+  const totalByYear={};YEARS.forEach(y=>{totalByYear[y]=DATA.enrolment.filter(r=>r.academic_year===y).reduce((s,r)=>s+r.count,0);});
+  window.enrolChart.data.datasets.forEach(ds=>{
+    const t=Object.entries(LABELS).find(([k,v])=>v===ds.label)?.[0];
+    if(t){
+      const raw=getVals(enrolByType[t]||{},YEARS);
+      ds.data = mode==='pct'?raw.map((v,i)=>v?+(v/totalByYear[YEARS[i]]*100).toFixed(1):null):raw;
+    }
+  });
+  window.enrolChart.options.scales.y.stacked = true;
+  window.enrolChart.options.scales.x.stacked = true;
+  window.enrolChart.update();
+};
+
+// ── ATTAINMENT ─────────────────────────────────────────────────────────────────
+function buildAttainment(){
+  document.getElementById('attain-metrics').innerHTML=`
+    <div class="metric bad"><div class="val">3.2%</div><div class="lbl">ND students: First class</div><div class="sub">vs 10.6% non-ND</div></div>
+    <div class="metric bad"><div class="val">70.1%</div><div class="lbl">ND: 2:2 or Third</div><div class="sub">vs 49.5% non-ND</div></div>
+    <div class="metric bad"><div class="val">25.3%</div><div class="lbl">ND year fail rate</div><div class="sub">vs 11.0% non-ND (×2.3)</div></div>
+    <div class="metric warn"><div class="val">+0.77 pts</div><div class="lbl">Autistic gap widened</div><div class="sub">1046-47 → 1052-53</div></div>
+  `;
+  // fail rate
+  const filtersEl=document.getElementById('fail-filters');
+  let activeF=new Set(ALL_TYPES);
+  ALL_TYPES.forEach(t=>{
+    const b=document.createElement('button');b.className='pill active';b.textContent=LABELS[t];
+    b.style.borderColor=C[t];b.style.color=C[t];
+    b.onclick=()=>{
+      if(activeF.has(t)){if(activeF.size>1){activeF.delete(t);b.classList.remove('active');b.style.background='';}}
+      else{activeF.add(t);b.classList.add('active');b.style.background=C[t]+'22';}
+      window.failChart.data.datasets.forEach(ds=>{
+        const tt=Object.entries(LABELS).find(([k,v])=>v===ds.label)?.[0];
+        ds.hidden=tt&&!activeF.has(tt);
+      });
+      window.failChart.update();
+    };
+    filtersEl.appendChild(b);
+  });
+  const failByType=pivot(DATA.fail_rate,'year','fail_rate','nd_type');
+  window.failChart=new Chart(document.getElementById('failChart'),{
+    type:'line',data:{labels:YEARS,datasets:ALL_TYPES.map(t=>({
+      label:LABELS[t],data:getVals(failByType[t]||{},YEARS),
+      borderColor:C[t],pointBackgroundColor:C[t],tension:.3,fill:false,
+      borderDash:t==='non_nd'?[4,3]:[],borderWidth:t==='non_nd'?1.5:2
+    }))},
+    options:{...baseOpts('Year fail rate (%)',0,45),
+      plugins:{legend:{labels:{font:{size:10},color:'#888'}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'%'}}}}
+  });
+  // degree
+  const types=['non_nd','autistic_spectrum','adhd','communication_difficulties','dyslexia','other_neurodivergence','specific_learning_disability'];
+  const labs=types.map(t=>LABELS[t]);
+  const degMap={};DATA.deg_class.forEach(r=>{degMap[r.nd_type]=r;});
+  window.degChart=new Chart(document.getElementById('degChart'),{
+    type:'bar',
+    data:{labels:labs,datasets:[
+      {label:'First',data:types.map(t=>+(degMap[t]?.First||0).toFixed(1)),backgroundColor:'#534AB7cc',stack:'a',borderRadius:0},
+      {label:'2:1', data:types.map(t=>+(degMap[t]?.['2:1']||0).toFixed(1)),backgroundColor:'#9FE1CBcc',stack:'a'},
+      {label:'2:2', data:types.map(t=>+(degMap[t]?.['2:2']||0).toFixed(1)),backgroundColor:'#FAC775cc',stack:'a'},
+      {label:'Third',data:types.map(t=>+(degMap[t]?.Third||0).toFixed(1)),backgroundColor:'#F0997Bcc',stack:'a',borderRadius:0},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},color:'#888'}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'%'}}},
+      scales:{x:{stacked:true,ticks:{font:{size:10},color:'#888'},grid:{color:'rgba(128,128,128,0.1)'}},
+              y:{stacked:true,max:100,ticks:{font:{size:10},color:'#888',callback:v=>v+'%'},grid:{color:'rgba(128,128,128,0.1)'}}}}
+  });
+}
+
+// ── FORMATS ───────────────────────────────────────────────────────────────────
+function buildFormats(){
+  const filtersEl=document.getElementById('fmt-filters');
+  let activeFmt=new Set(ALL_TYPES);
+  ALL_TYPES.forEach(t=>{
+    const b=document.createElement('button');b.className='pill active';b.textContent=LABELS[t];
+    b.style.borderColor=C[t];b.style.color=C[t];
+    b.onclick=()=>{
+      if(activeFmt.has(t)){if(activeFmt.size>1){activeFmt.delete(t);b.classList.remove('active');b.style.background='';}}
+      else{activeFmt.add(t);b.classList.add('active');b.style.background=C[t]+'22';}
+      window.fmtChart.data.datasets.forEach(ds=>{
+        const tt=Object.entries(LABELS).find(([k,v])=>v===ds.label)?.[0];
+        ds.hidden=tt&&!activeFmt.has(tt);
+      });
+      window.fmtChart.update();
+    };
+    filtersEl.appendChild(b);
+  });
+  const fmts=DATA.format_gap.map(r=>r.assessment_type);
+  window.fmtChart=new Chart(document.getElementById('fmtChart'),{
+    type:'bar',
+    data:{labels:fmts,datasets:ALL_TYPES.map(t=>({
+      label:LABELS[t],data:DATA.format_gap.map(r=>+(r[t]||0).toFixed(1)),
+      backgroundColor:C[t]+'bb',borderRadius:3
+    }))},
+    options:{...baseOpts('Mean mark',44,68),
+      plugins:{legend:{labels:{font:{size:10},color:'#888'}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)}}}}
+  });
+}
+
+// ── MODULES ───────────────────────────────────────────────────────────────────
+let modFilter='all';
+function buildModules(){
+  const facSel=document.getElementById('fac-filter');
+  const fmtSel=document.getElementById('fmt-filter');
+  [...new Set(DATA.modules.map(m=>m.faculty))].sort().forEach(f=>{
+    const o=document.createElement('option');o.value=f;o.textContent=f;facSel.appendChild(o);
+  });
+  [...new Set(DATA.modules.map(m=>m.format))].sort().forEach(f=>{
+    const o=document.createElement('option');o.value=f;o.textContent=f;fmtSel.appendChild(o);
+  });
+  renderModTable();
+}
+window.filterMods=function(mode,btn){
+  modFilter=mode;
+  document.querySelectorAll('#section-modules .ctrl-row:first-of-type .pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderModTable();
+};
+window.renderModTable=function(){
+  const search=document.getElementById('mod-search').value.toLowerCase();
+  const fac=document.getElementById('fac-filter').value;
+  const fmt=document.getElementById('fmt-filter').value;
+  const yr=document.getElementById('yr-filter').value;
+  let mods=[...DATA.modules];
+  if(modFilter==='out')mods=mods.filter(m=>m.gap>0);
+  else if(modFilter==='strong')mods=mods.filter(m=>m.gap>=2);
+  else if(modFilter==='large')mods=mods.filter(m=>m.gap<=-5);
+  if(fac)mods=mods.filter(m=>m.faculty===fac);
+  if(fmt)mods=mods.filter(m=>m.format===fmt);
+  if(yr)mods=mods.filter(m=>String(m.year)===yr);
+  if(search)mods=mods.filter(m=>m.module.toLowerCase().includes(search)||m.dept.toLowerCase().includes(search));
+  const tbody=document.getElementById('mod-tbody');
+  tbody.innerHTML='';
+  mods.forEach(m=>{
+    const g=m.gap;
+    const gClass=g>0?'gap-pos':g<-5?'gap-neg':'gap-warn';
+    const gStr=(g>0?'+':'')+g.toFixed(1);
+    const badge=g>0?'<span class="badge green">Outperforms</span>':g<-5?'<span class="badge">Large gap</span>':'';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${m.module} ${badge}</td><td>${m.format}</td><td>${m.year}</td><td>${m.dept}</td><td>${m.auto_mean.toFixed(1)}</td><td>${m.nonnd_mean.toFixed(1)}</td><td class="${gClass}">${gStr}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('mod-count').textContent=`Showing ${mods.length} modules`;
+};
+
+// ── WELLBEING ─────────────────────────────────────────────────────────────────
+function buildWellbeing(){
+  const dims=[
+    {key:'belonging_peers',label:'Peer belonging'},
+    {key:'belonging_programme',label:'Programme belonging'},
+    {key:'academic_self_efficacy',label:'Academic self-efficacy'},
+    {key:'support_satisfaction',label:'Support satisfaction'},
+    {key:'career_clarity',label:'Career clarity'},
+    {key:'career_confidence',label:'Career confidence'},
+  ];
+  let activeDim=dims[0].key;
+  const dimsEl=document.getElementById('surv-dims');
+  dims.forEach(d=>{
+    const b=document.createElement('button');b.className='pill'+(d.key===activeDim?' active':'');
+    b.textContent=d.label;
+    b.onclick=()=>{
+      activeDim=d.key;
+      document.querySelectorAll('#surv-dims .pill').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      updateSurvChart();
+    };
+    dimsEl.appendChild(b);
+  });
+  const PROG_YEARS=[1,2,3];
+  const types=['adhd','autistic_spectrum','communication_difficulties','non_nd'];
+  window.survChart=new Chart(document.getElementById('survChart'),{
+    type:'line',
+    data:{labels:['Year 1','Year 2','Year 3'],datasets:types.map(t=>({
+      label:LABELS[t],
+      data:PROG_YEARS.map(y=>DATA.survey_by_year.find(r=>r.nd_type===t&&r.programme_year===y)?.[activeDim]??null),
+      borderColor:C[t],pointBackgroundColor:C[t],tension:.3,fill:false,
+      borderDash:t==='non_nd'?[4,3]:[],borderWidth:t==='non_nd'?1.5:2,pointRadius:6
+    }))},
+    options:{...baseOpts('Score (1–5)',2.8,4.4),
+      plugins:{legend:{labels:{font:{size:11},color:'#888'}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(3)}}}}
+  });
+  function updateSurvChart(){
+    window.survChart.data.datasets.forEach(ds=>{
+      const t=Object.entries(LABELS).find(([k,v])=>v===ds.label)?.[0];
+      if(t) ds.data=PROG_YEARS.map(y=>DATA.survey_by_year.find(r=>r.nd_type===t&&r.programme_year===y)?.[activeDim]??null);
+    });
+    window.survChart.update();
+  }
+}
+
+// ── OUTCOMES ──────────────────────────────────────────────────────────────────
+function buildOutcomes(){
+  const empMap={};DATA.emp_rate.forEach(r=>{empMap[r.nd_type]=r.emp_rate;});
+  const salMap={};DATA.salary.forEach(r=>{salMap[r.nd_type]=r.salary_band;});
+  const m=document.getElementById('outcomes-metrics');
+  m.innerHTML=`
+    <div class="metric good"><div class="val">69.5%</div><div class="lbl">Autistic employment rate</div><div class="sub">Highest of all groups</div></div>
+    <div class="metric"><div class="val">3.17</div><div class="lbl">Autistic salary band</div><div class="sub">Above non-ND (3.13)</div></div>
+    <div class="metric bad"><div class="val">57.4%</div><div class="lbl">SpLD employment rate</div><div class="sub">Lowest of all groups</div></div>
+    <div class="metric bad"><div class="val">2.59</div><div class="lbl">SpLD salary band</div><div class="sub">Lowest of all groups</div></div>
+  `;
+  const types=['autistic_spectrum','other_neurodivergence','non_nd','communication_difficulties','adhd','dyslexia','specific_learning_disability'];
+  const labs=types.map(t=>LABELS[t]);
+  window.empChart=new Chart(document.getElementById('empChart'),{
+    type:'bar',
+    data:{labels:labs,datasets:[
+      {label:'Employment rate (%)',data:types.map(t=>empMap[t]||0),backgroundColor:types.map(t=>C[t]+'cc'),borderRadius:4,yAxisID:'y'},
+      {label:'Salary band (1–5)',data:types.map(t=>+(salMap[t]||0).toFixed(2)),type:'line',borderColor:'#888',pointBackgroundColor:'#888',tension:.3,fill:false,yAxisID:'y2',pointRadius:5},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},color:'#888'}},
+        tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y'?c.dataset.label+': '+c.parsed.y.toFixed(1)+'%':c.dataset.label+': '+c.parsed.y.toFixed(2)}}},
+      scales:{
+        x:{ticks:{font:{size:10},color:'#888'},grid:{color:'rgba(128,128,128,0.1)'}},
+        y:{position:'left',min:40,max:80,ticks:{font:{size:10},color:'#888',callback:v=>v+'%'},grid:{color:'rgba(128,128,128,0.1)'},title:{display:true,text:'Employment %',color:'#888',font:{size:10}}},
+        y2:{position:'right',min:2,max:4,ticks:{font:{size:10},color:'#888'},grid:{drawOnChartArea:false},title:{display:true,text:'Salary band',color:'#888',font:{size:10}}}
+      }}
+  });
+}
+
+// ── ALERTS ────────────────────────────────────────────────────────────────────
+function buildAlerts(){
+  const wks=DATA.attend_by_week.map(r=>r.week_number);
+  window.attendChart=new Chart(document.getElementById('attendChart'),{
+    type:'line',
+    data:{labels:wks.map(w=>'Wk '+w),datasets:[
+      {label:'ADHD',data:DATA.attend_by_week.map(r=>+(r.adhd*100).toFixed(1)),borderColor:C.adhd,pointBackgroundColor:C.adhd,tension:.3,fill:false,pointRadius:4},
+      {label:'Autistic',data:DATA.attend_by_week.map(r=>+(r.autistic_spectrum*100).toFixed(1)),borderColor:C.autistic_spectrum,pointBackgroundColor:C.autistic_spectrum,tension:.3,fill:false,pointRadius:4},
+      {label:'Non-ND',data:DATA.attend_by_week.map(r=>+(r.non_nd*100).toFixed(1)),borderColor:C.non_nd,borderDash:[4,3],pointBackgroundColor:C.non_nd,tension:.3,fill:false,pointRadius:3},
+    ]},
+    options:{...baseOpts('Attendance rate (%)',55,92),
+      plugins:{legend:{labels:{font:{size:11},color:'#888'}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'%'}}}}
+  });
+  window.threshChart=new Chart(document.getElementById('threshChart'),{
+    type:'bar',
+    data:{labels:['<50%','50–60%','60–70%','70–80%','80–90%','>90%'],
+          datasets:[{label:'ADHD year fail rate',data:[64.0,52.1,35.2,26.0,16.6,7.8],
+            backgroundColor:['#c0392b','#c0392b','#e07a17','#e07a17','#1d9e75','#1d9e75'],borderRadius:4}]},
+    options:{...baseOpts('Fail rate (%)',0,75),plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(1)+'% fail rate'}}}}
+  });
+}
+
+// ── NSS ───────────────────────────────────────────────────────────────────────
+function buildNss(){
+  const dims=['teaching_quality','learning_opportunities','assessment_feedback','academic_support','organisation_management','learning_resources','student_voice','overall_satisfaction'];
+  const dimLabels=['Teaching','Learning opps','Assessment feedback','Academic support','Organisation','Resources','Student voice','Satisfaction'];
+  const types=['adhd','autistic_spectrum','communication_difficulties','non_nd'];
+  const nssMap={};DATA.nss.forEach(r=>{nssMap[r.nd_type]=r;});
+  window.nssChart=new Chart(document.getElementById('nssChart'),{
+    type:'radar',
+    data:{labels:dimLabels,datasets:types.map(t=>({
+      label:LABELS[t],
+      data:dims.map(d=>+(nssMap[t]?.[d]||0).toFixed(3)),
+      borderColor:C[t],backgroundColor:C[t]+'18',pointBackgroundColor:C[t],
+      borderDash:t==='non_nd'?[4,3]:[],borderWidth:t==='non_nd'?1.5:2
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:11},color:'#888'}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.r.toFixed(3)}}},
+      scales:{r:{min:3.2,max:4.3,ticks:{font:{size:9},color:'#888',backdropColor:'transparent'},
+                 pointLabels:{font:{size:10},color:'#888'},grid:{color:'rgba(128,128,128,0.15)'},
+                 angleLines:{color:'rgba(128,128,128,0.15)'}}}}
+  });
+}
+
+// ── section router ────────────────────────────────────────────────────────────
+function buildSection(sec){
+  chartsBuilt[sec]=true;
+  if(sec==='overview')buildOverview();
+  else if(sec==='attainment')buildAttainment();
+  else if(sec==='formats')buildFormats();
+  else if(sec==='modules')buildModules();
+  else if(sec==='wellbeing')buildWellbeing();
+  else if(sec==='outcomes')buildOutcomes();
+  else if(sec==='alerts')buildAlerts();
+  else if(sec==='nss')buildNss();
+}
+
+buildSection('overview');
+
+// ── mobile nav ──────────────────────────────────────────────────────────────
+const hamBtn = document.getElementById('hamBtn');
+const navEl = document.querySelector('nav');
+const overlay = document.getElementById('navOverlay');
+function openNav(){navEl.classList.add('open');overlay.classList.add('show');hamBtn.classList.add('open');hamBtn.setAttribute('aria-expanded','true');}
+function closeNav(){navEl.classList.remove('open');overlay.classList.remove('show');hamBtn.classList.remove('open');hamBtn.setAttribute('aria-expanded','false');}
+hamBtn.addEventListener('click',()=>navEl.classList.contains('open')?closeNav():openNav());
+overlay.addEventListener('click',closeNav);
+document.querySelectorAll('.nav-link').forEach(a=>a.addEventListener('click',()=>{if(window.innerWidth<=700)closeNav();}));
+</script>
+</body>
+</html>
